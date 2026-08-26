@@ -1,42 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Filter, MoreVertical, CheckCircle2, Clock, AlertCircle, X, MapPin, Tag, Calendar, User, MessageSquare, AlignLeft } from 'lucide-react';
+import { Filter, MoreVertical, CheckCircle2, Clock, AlertCircle, X, MapPin, Tag, Calendar, User, MessageSquare, AlignLeft, Archive, Trash2, Shield } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
-const MOCK_TICKETS = [
-  { id: 'TKT-1002', zone: 'Zona Norte', category: 'Redes', priority: 'Crítica', status: 'Abierto', date: 'Hace 5 min', title: 'Caída de enlace principal', description: 'Se ha reportado una pérdida total de conectividad en el piso 2 de la sucursal operativa norte. El router principal no responde al ping.', user: 'Juan Pérez' },
-  { id: 'TKT-1001', zone: 'Zona Sur', category: 'Mantenimiento', priority: 'Media', status: 'En Progreso', date: 'Hace 2 horas', title: 'Cámara 4 sin señal', description: 'La cámara de seguridad de la entrada trasera presenta ruido en la imagen y pérdida de señal intermitente.', user: 'Ana Gómez' },
-  { id: 'TKT-1000', zone: 'Zona Centro', category: 'Software', priority: 'Baja', status: 'Resuelto', date: 'Ayer', title: 'Actualización de ERP', description: 'Solicitud para actualizar el módulo de contabilidad a la última versión disponible.', user: 'Carlos Ruiz' },
-];
-
-export default function AdminDashboard() {
-  const [tickets, setTickets] = useState(MOCK_TICKETS);
-  const [toastMessage, setToastMessage] = useState(null);
-  
-  // Estados para filtros e interactividad
-  const [activeFilter, setActiveFilter] = useState('Todos');
-  const [selectedTicket, setSelectedTicket] = useState(null);
-
-  // Simulación de SignalR
   useEffect(() => {
-    const timer = setTimeout(() => {
-      const newTicket = { 
-        id: 'TKT-1003', 
-        zone: 'Zona Centro', 
-        category: 'Software', 
-        priority: 'Alta', 
-        status: 'Abierto', 
-        date: 'Justo ahora', 
-        title: 'Error al procesar pagos', 
-        description: 'Las terminales de cobro están rechazando todas las tarjetas con un error de timeout en el servidor.',
-        user: 'María López'
-      };
-      setTickets(prev => [newTicket, ...prev]);
-      setToastMessage(`¡Nuevo ticket ${newTicket.priority} en ${newTicket.zone}!`);
-      window.dispatchEvent(new Event('signalr-new-ticket'));
-      setTimeout(() => setToastMessage(null), 5000);
-    }, 10000);
-
-    return () => clearTimeout(timer);
     fetchTickets();
   }, []);
 
