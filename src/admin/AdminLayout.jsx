@@ -7,13 +7,14 @@ export default function AdminLayout() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [notifications, setNotifications] = useState(0);
 
+  const adminUser = typeof window !== 'undefined' ? localStorage.getItem('admin_user') : '';
+
   // Verificación de seguridad
   useEffect(() => {
-    const user = localStorage.getItem('admin_user');
-    if (!user) {
+    if (!adminUser) {
       navigate('/acceso-privado-vd');
     }
-  }, [navigate]);
+  }, [navigate, adminUser]);
 
   // Escuchar eventos globales de SignalR emitidos desde el Dashboard
   useEffect(() => {
@@ -108,8 +109,8 @@ export default function AdminLayout() {
                 )}
               </button>
               <div className="relative flex items-center gap-2">
-                <img className="h-8 w-8 rounded-full border border-slate-200" src="https://ui-avatars.com/api/?name=Admin+User&background=0D8ABC&color=fff" alt="" />
-                <span className="hidden sm:block text-sm font-medium text-slate-700">Admin Support</span>
+                <img className="h-8 w-8 rounded-full border border-slate-200" src={`https://ui-avatars.com/api/?name=${adminUser || 'Admin'}&background=0D8ABC&color=fff`} alt="" />
+                <span className="hidden sm:block text-sm font-medium text-slate-700">{adminUser || 'Admin Support'}</span>
               </div>
             </div>
           </div>
