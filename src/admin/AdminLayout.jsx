@@ -93,7 +93,10 @@ export default function AdminLayout() {
         <header className="bg-white shadow-sm border-b border-slate-200 z-10">
           <div className="flex-1 flex justify-between h-16 px-4 sm:px-6 lg:px-8">
             <div className="flex-1 flex items-center">
-              <button className="md:hidden p-2 rounded-md text-slate-400 hover:text-slate-500 hover:bg-slate-100">
+              <button 
+                onClick={() => setIsMobileMenuOpen(true)}
+                className="md:hidden p-2 rounded-md text-slate-400 hover:text-slate-500 hover:bg-slate-100"
+              >
                 <Menu className="h-6 w-6" />
               </button>
               <div className="hidden md:flex ml-4 flex-1">
@@ -119,6 +122,76 @@ export default function AdminLayout() {
             </div>
           </div>
         </header>
+
+        {/* Mobile Menu Overlay */}
+        {isMobileMenuOpen && (
+          <div className="fixed inset-0 flex z-40 md:hidden" role="dialog" aria-modal="true">
+            <div className="fixed inset-0 bg-slate-600 bg-opacity-75 transition-opacity" aria-hidden="true" onClick={() => setIsMobileMenuOpen(false)}></div>
+
+            <div className="relative flex-1 flex flex-col max-w-xs w-full pt-5 pb-4 bg-slate-900 border-r border-slate-800">
+              <div className="absolute top-0 right-0 -mr-12 pt-2">
+                <button 
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="ml-1 flex items-center justify-center h-10 w-10 rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
+                >
+                  <X className="h-6 w-6 text-white" />
+                </button>
+              </div>
+              <div className="flex-shrink-0 flex items-center px-4 gap-3 mb-5">
+                <img src="/logo.jpg" alt="Logo" className="w-10 h-10 rounded-lg object-cover border border-slate-700" />
+                <div>
+                  <h1 className="font-extrabold text-white tracking-tight leading-tight">Vigilancia<br/><span className="text-blue-400">Digital S.A.</span></h1>
+                </div>
+              </div>
+              <div className="mt-5 flex-1 h-0 overflow-y-auto">
+                <nav className="px-2 space-y-1">
+                  {navigation.map((item) => (
+                    <NavLink
+                      key={item.name}
+                      to={item.to}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className={({ isActive }) =>
+                        `group flex items-center px-3 py-2.5 text-base font-medium rounded-lg transition-colors ${
+                          isActive
+                            ? (item.isDanger ? 'bg-red-900/50 text-red-400 border border-red-900' : 'bg-blue-600 text-white')
+                            : (item.isDanger ? 'text-red-500 hover:bg-red-950/30 hover:text-red-400' : 'text-slate-400 hover:bg-slate-800 hover:text-white')
+                        }`
+                      }
+                    >
+                      <item.icon className={`mr-4 flex-shrink-0 h-6 w-6 ${item.isDanger ? 'text-red-500' : ''}`} />
+                      {item.name}
+                    </NavLink>
+                  ))}
+                </nav>
+              </div>
+              <div className="flex-shrink-0 flex border-t border-slate-800 p-4">
+                <button 
+                  onClick={() => {
+                    localStorage.removeItem('admin_user');
+                    navigate('/');
+                  }} 
+                  className="flex-shrink-0 group block w-full text-left"
+                >
+                  <div className="flex items-center">
+                    <div>
+                      <img className="inline-block h-10 w-10 rounded-full" src={`https://ui-avatars.com/api/?name=${adminUser || 'Admin'}&background=0D8ABC&color=fff`} alt="" />
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-base font-medium text-white">{adminUser || 'Admin'}</p>
+                      <p className="text-sm font-medium text-slate-400 group-hover:text-slate-300 flex items-center gap-1 mt-0.5">
+                        <LogOut className="h-4 w-4" /> Cerrar sesión
+                      </p>
+                    </div>
+                  </div>
+                </button>
+              </div>
+            </div>
+            
+            <div className="flex-shrink-0 w-14" aria-hidden="true">
+              {/* Dummy element to force sidebar to shrink to fit close icon */}
+            </div>
+          </div>
+        )}
 
         {/* Contenido Principal (Renderiza las subrutas) */}
         <main className="flex-1 relative z-0 overflow-y-auto focus:outline-none">

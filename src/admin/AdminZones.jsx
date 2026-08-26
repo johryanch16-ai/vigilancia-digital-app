@@ -89,39 +89,41 @@ export default function AdminZones() {
       )}
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <table className="min-w-full divide-y divide-slate-200">
-          <thead className="bg-slate-50">
-            <tr>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Nombre de la Zona</th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Dirección</th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Estado</th>
-              <th className="px-6 py-4 relative"><span className="sr-only">Acciones</span></th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-slate-100">
-            {zones.map((zone) => (
-              <tr key={zone.id} className="hover:bg-slate-50 transition-colors">
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-slate-900">{zone.name}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{zone.address}</td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${zone.status === 'Activa' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'}`}>
-                    {zone.status}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium flex justify-end gap-2">
-                  <button className="p-2 text-slate-400 hover:text-blue-600 transition-colors rounded-lg hover:bg-blue-50" onClick={async () => {
-                    const newName = window.prompt("Nuevo nombre para la zona:", zone.name);
-                    if (newName && newName !== zone.name) {
-                      const { error } = await supabase.from('zones').update({ name: newName }).eq('id', zone.id);
-                      if (!error) setZones(zones.map(z => z.id === zone.id ? { ...z, name: newName } : z));
-                    }
-                  }}><Edit2 className="w-4 h-4" /></button>
-                  <button className="p-2 text-slate-400 hover:text-red-600 transition-colors rounded-lg hover:bg-red-50" onClick={() => handleDeleteZone(zone.id)}><Trash2 className="w-4 h-4" /></button>
-                </td>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-slate-200">
+            <thead className="bg-slate-50">
+              <tr>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Nombre de la Zona</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Dirección</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Estado</th>
+                <th className="px-6 py-4 relative"><span className="sr-only">Acciones</span></th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="bg-white divide-y divide-slate-100">
+              {zones.map((zone) => (
+                <tr key={zone.id} className="hover:bg-slate-50 transition-colors">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-slate-900">{zone.name}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{zone.address}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${zone.status === 'Activa' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'}`}>
+                      {zone.status}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium flex justify-end gap-2">
+                    <button className="p-2 text-slate-400 hover:text-blue-600 transition-colors rounded-lg hover:bg-blue-50" onClick={async () => {
+                      const newName = window.prompt("Nuevo nombre para la zona:", zone.name);
+                      if (newName && newName !== zone.name) {
+                        const { error } = await supabase.from('zones').update({ name: newName }).eq('id', zone.id);
+                        if (!error) setZones(zones.map(z => z.id === zone.id ? { ...z, name: newName } : z));
+                      }
+                    }}><Edit2 className="w-4 h-4" /></button>
+                    <button className="p-2 text-slate-400 hover:text-red-600 transition-colors rounded-lg hover:bg-red-50" onClick={() => handleDeleteZone(zone.id)}><Trash2 className="w-4 h-4" /></button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

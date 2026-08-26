@@ -107,55 +107,57 @@ export default function AdminEquipos() {
       )}
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <table className="min-w-full divide-y divide-slate-200">
-          <thead className="bg-slate-50">
-            <tr>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Nombre del Equipo</th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Dirección IP</th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Sucursal / Zona</th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Estado Actual</th>
-              <th className="px-6 py-4 relative"><span className="sr-only">Acciones</span></th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-slate-100">
-            {equipos.map((equipo) => (
-              <tr key={equipo.id} className="hover:bg-slate-50 transition-colors">
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-slate-100 text-slate-500 rounded-lg">
-                      {equipo.name.startsWith('SRV') ? <Server className="w-4 h-4" /> : <Monitor className="w-4 h-4" />}
-                    </div>
-                    <span className="text-sm font-bold text-slate-900">{equipo.name}</span>
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className="font-mono text-sm font-medium text-slate-600 bg-slate-100 px-2 py-1 rounded-md border border-slate-200">
-                    {equipo.ip}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                  {equipo.zones?.name || 'Sin asignar'}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${
-                    equipo.status === 'Operativo' ? 'bg-emerald-100 text-emerald-800' : 
-                    equipo.status === 'Falla de Red' ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800'
-                  }`}>
-                    {equipo.status}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium flex justify-end gap-2">
-                  <button className="p-2 text-slate-400 hover:text-blue-600 transition-colors rounded-lg hover:bg-blue-50" title="Editar" onClick={() => alert('Edición en desarrollo')}>
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                  <button className="p-2 text-slate-400 hover:text-red-600 transition-colors rounded-lg hover:bg-red-50" title="Eliminar" onClick={() => handleDeleteEquipo(equipo.id)}>
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </td>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-slate-200">
+            <thead className="bg-slate-50">
+              <tr>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Nombre del Equipo</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Dirección IP</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Sucursal / Zona</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Estado Actual</th>
+                <th className="px-6 py-4 relative"><span className="sr-only">Acciones</span></th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="bg-white divide-y divide-slate-100">
+              {equipos.map((equipo) => (
+                <tr key={equipo.id} className="hover:bg-slate-50 transition-colors">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-slate-100 text-slate-500 rounded-lg">
+                        {equipo.name.startsWith('SRV') ? <Server className="w-4 h-4" /> : <Monitor className="w-4 h-4" />}
+                      </div>
+                      <span className="text-sm font-bold text-slate-900">{equipo.name}</span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="font-mono text-sm font-medium text-slate-600 bg-slate-100 px-2 py-1 rounded-md border border-slate-200">
+                      {equipo.ip}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                    {equipo.zones?.name || 'Sin asignar'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${
+                      equipo.status === 'Operativo' ? 'bg-emerald-100 text-emerald-800' : 
+                      equipo.status === 'Falla de Red' ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800'
+                    }`}>
+                      {equipo.status}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium flex justify-end gap-2">
+                    <button className="p-2 text-slate-400 hover:text-blue-600 transition-colors rounded-lg hover:bg-blue-50" title="Editar" onClick={() => alert('Edición en desarrollo')}>
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button className="p-2 text-slate-400 hover:text-red-600 transition-colors rounded-lg hover:bg-red-50" title="Eliminar" onClick={() => handleDeleteEquipo(equipo.id)}>
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

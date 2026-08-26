@@ -121,66 +121,68 @@ export default function AdminDashboard() {
 
       {/* Ticket Table */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        <table className="min-w-full divide-y divide-slate-100">
-          <thead className="bg-slate-50/50">
-            <tr>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">Ticket</th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">Estado</th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">Prioridad</th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">Zona / Categoría</th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">Fecha</th>
-              <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-widest">Acciones</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {filteredTickets.map((ticket) => (
-              <tr 
-                key={ticket.id} 
-                onClick={() => setSelectedTicket(ticket)}
-                className="hover:bg-slate-50/80 transition-colors cursor-pointer group"
-              >
-                <td className="px-6 py-4">
-                  <div className="font-bold text-slate-900 text-sm">TKT-{ticket.displayId}</div>
-                  <div className="text-slate-500 text-sm mt-0.5 truncate max-w-[200px]">{ticket.title}</div>
-                </td>
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-2">
-                    {getStatusIcon(ticket.status)}
-                    <span className="text-sm font-bold text-slate-700">{ticket.status}</span>
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <span className={`px-3 py-1 rounded-full text-xs ${getPriorityColor(ticket.priority)}`}>
-                    {ticket.priority}
-                  </span>
-                </td>
-                <td className="px-6 py-4">
-                  <div className="text-sm font-medium text-slate-700">{ticket.zone}</div>
-                  <div className="text-xs text-slate-500 mt-0.5">{ticket.category}</div>
-                </td>
-                <td className="px-6 py-4 text-sm font-medium text-slate-500">
-                  {ticket.date.split(',')[0]}
-                </td>
-                <td className="px-6 py-4 text-right">
-                  <button 
-                    onClick={(e) => handleDeleteTicket(ticket.id, e)}
-                    className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                    title="Eliminar (Mandar a Bitácora)"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {filteredTickets.length === 0 && (
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-slate-100">
+            <thead className="bg-slate-50/50">
               <tr>
-                <td colSpan="6" className="px-6 py-12 text-center text-slate-500 font-medium">
-                  No se encontraron tickets en esta vista.
-                </td>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">Ticket</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">Estado</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">Prioridad</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">Zona / Categoría</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">Fecha</th>
+                <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-widest">Acciones</th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {filteredTickets.map((ticket) => (
+                <tr 
+                  key={ticket.id} 
+                  onClick={() => setSelectedTicket(ticket)}
+                  className="hover:bg-slate-50/80 transition-colors cursor-pointer group"
+                >
+                  <td className="px-6 py-4">
+                    <div className="font-bold text-slate-900 text-sm">TKT-{ticket.displayId}</div>
+                    <div className="text-slate-500 text-sm mt-0.5 truncate max-w-[200px]">{ticket.title}</div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-2">
+                      {getStatusIcon(ticket.status)}
+                      <span className="text-sm font-bold text-slate-700">{ticket.status}</span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className={`px-3 py-1 rounded-full text-xs ${getPriorityColor(ticket.priority)}`}>
+                      {ticket.priority}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="text-sm font-medium text-slate-700">{ticket.zone}</div>
+                    <div className="text-xs text-slate-500 mt-0.5">{ticket.category}</div>
+                  </td>
+                  <td className="px-6 py-4 text-sm font-medium text-slate-500 whitespace-nowrap">
+                    {ticket.date.split(',')[0]}
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <button 
+                      onClick={(e) => handleDeleteTicket(ticket.id, e)}
+                      className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100 md:opacity-100"
+                      title="Eliminar (Mandar a Bitácora)"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {filteredTickets.length === 0 && (
+                <tr>
+                  <td colSpan="6" className="px-6 py-12 text-center text-slate-500 font-medium">
+                    No se encontraron tickets en esta vista.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Modal / Slide-over para Detalle de Ticket */}

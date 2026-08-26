@@ -226,16 +226,16 @@ const TicketForm = () => {
         </div>
 
         {/* Form Footer */}
-        <div className="pt-6 flex justify-end gap-3 border-t border-slate-100 mt-4">
+        <div className="pt-6 flex flex-col sm:flex-row justify-end gap-3 border-t border-slate-100 mt-4">
           <button
             type="button"
-            className="flex items-center gap-2 px-6 py-3 bg-white border border-slate-300 rounded-xl text-slate-700 font-bold hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-200 transition-colors"
+            className="flex items-center justify-center gap-2 px-6 py-3 bg-white border border-slate-300 rounded-xl text-slate-700 font-bold hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-200 transition-colors w-full sm:w-auto"
           >
             <X className="w-4 h-4" /> Descartar
           </button>
           <button
             type="submit"
-            className="flex items-center gap-2 px-8 py-3 bg-blue-600 border border-transparent rounded-xl text-white font-bold hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all shadow-[0_4px_14px_0_rgba(37,99,235,0.39)] hover:shadow-[0_6px_20px_rgba(37,99,235,0.23)] hover:-translate-y-0.5"
+            className="flex items-center justify-center gap-2 px-8 py-3 bg-blue-600 border border-transparent rounded-xl text-white font-bold hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all shadow-[0_4px_14px_0_rgba(37,99,235,0.39)] hover:shadow-[0_6px_20px_rgba(37,99,235,0.23)] hover:-translate-y-0.5 w-full sm:w-auto"
           >
             <Send className="w-4 h-4" /> Registrar Incidencia
           </button>
