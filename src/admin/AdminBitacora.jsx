@@ -1,28 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Filter, MoreVertical, CheckCircle2, Clock, AlertCircle, X, MapPin, Tag, Calendar, User, MessageSquare, AlignLeft, Archive, Trash2, Shield } from 'lucide-react';
+import { Filter, MoreVertical, CheckCircle2, Clock, AlertCircle, X, MapPin, Tag, Calendar, User, MessageSquare, AlignLeft, Archive, Trash2, Shield, RotateCcw } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { useNavigate } from 'react-router-dom';
 
-export default function AdminDashboard() {
+export default function AdminBitacora() {
   const [tickets, setTickets] = useState([]);
-  const [filter, setFilter] = useState('all'); // all, open, critical, archived
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
   const adminUser = typeof window !== 'undefined' ? localStorage.getItem('admin_user') : '';
+  const navigate = useNavigate();
 
   useEffect(() => {
-    fetchTickets();
-  }, []);
+    if (adminUser !== 'Johryan') {
+      navigate('/admin/tickets'); // Redirect unauthorized users
+    } else {
+      fetchTickets();
+    }
+  }, [adminUser, navigate]);
 
   const fetchTickets = async () => {
-    // In a real app we would join with zones, categories, equipos, etc.
     const { data, error } = await supabase
       .from('tickets')
       .select('*, zones(name), categories(name), equipos(name)')
+      .eq('status', 'Archivado')
       .order('created_at', { ascending: false });
     
     if (!error && data) {
-      // Map to frontend expected format
       const mapped = data.map(t => ({
         id: t.id,
         displayId: t.id.substring(0, 8).toUpperCase(),
@@ -51,41 +55,35 @@ export default function AdminDashboard() {
   };
 
   const getStatusIcon = (status) => {
-    switch (status) {
-      case 'Abierto': return <AlertCircle className="w-4 h-4 text-orange-500" />;
-      case 'En Progreso': return <Clock className="w-4 h-4 text-blue-500" />;
-      case 'Resuelto': return <CheckCircle2 className="w-4 h-4 text-emerald-500" />;
-      case 'Archivado': return <Archive className="w-4 h-4 text-slate-500" />;
-      default: return null;
+    return <Archive className="w-4 h-4 text-slate-500" />;
+  };
+
+  const handleRestoreTicket = async (id, e) => {
+    e.stopPropagation();
+    if (window.confirm('¿Deseas restaurar este ticket? Volverá al Centro de Control principal.')) {
+      const { error } = await supabase.from('tickets').update({ status: 'Abierto' }).eq('id', id);
+      if (!error) {
+        setTickets(tickets.filter(t => t.id !== id));
+        setToastMessage(`Ticket ${id.substring(0,8)} restaurado exitosamente.`);
+        setTimeout(() => setToastMessage(null), 3000);
+      }
     }
   };
 
-  const filteredTickets = tickets.filter(t => {
-    if (filter === 'archived') return t.status === 'Archivado';
-    
-    // Si no estamos en archivados, ocultar siempre los archivados
-    if (t.status === 'Archivado') return false;
-
-    if (filter === 'open') return t.status === 'Abierto';
-    if (filter === 'critical') return t.priority === 'Crítica';
-    return true; // all
-  });
-
-  const handleDeleteTicket = async (id, e) => {
+  const handleDeletePermanent = async (id, e) => {
     e.stopPropagation();
-    if (window.confirm('¿Estás seguro de enviar este ticket a la Bitácora (Archivo)?')) {
-      const { error } = await supabase.from('tickets').update({ status: 'Archivado' }).eq('id', id);
+    if (window.confirm('¡ATENCIÓN! ¿Estás totalmente seguro de eliminar este ticket permanentemente? Esta acción NO se puede deshacer.')) {
+      const { error } = await supabase.from('tickets').delete().eq('id', id);
       if (!error) {
-        setTickets(tickets.map(t => t.id === id ? { ...t, status: 'Archivado' } : t));
-        setToastMessage(`Ticket ${id.substring(0,8)} archivado.`);
+        setTickets(tickets.filter(t => t.id !== id));
+        setToastMessage(`Ticket ${id.substring(0,8)} destruido permanentemente.`);
         setTimeout(() => setToastMessage(null), 3000);
       }
     }
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto min-h-screen pb-24">
-      {/* Toast Notification */}
+    <div className="p-6 max-w-7xl mx-auto min-h-screen pb-24 bg-red-50/10">
       {toastMessage && (
         <div className="fixed top-6 right-6 z-50 bg-[#0a1128] border border-blue-500/30 text-white px-6 py-4 rounded-xl shadow-[0_0_30px_rgba(37,99,235,0.3)] animate-in slide-in-from-top-10 flex items-center gap-3">
           <Shield className="w-5 h-5 text-blue-400" />
@@ -94,29 +92,14 @@ export default function AdminDashboard() {
       )}
 
       {/* Header */}
-      <div className="sm:flex sm:items-center sm:justify-between mb-8">
+      <div className="sm:flex sm:items-center sm:justify-between mb-8 border-b border-red-200 pb-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Centro de Control de Tickets</h1>
-          <p className="mt-1 text-sm text-slate-500 font-medium">Gestión en tiempo real de las solicitudes de los clientes.</p>
+          <h1 className="text-2xl font-bold text-red-900 tracking-tight flex items-center gap-2">
+            <Archive className="w-6 h-6 text-red-600" />
+            Bitácora Privada - Archivo Secreto
+          </h1>
+          <p className="mt-1 text-sm text-red-700 font-medium">Registro histórico de tickets eliminados. Acceso exclusivo para Dirección (Johryan).</p>
         </div>
-        <div className="mt-4 sm:mt-0 flex gap-3">
-          <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-50 shadow-sm transition-colors">
-            <Filter className="w-4 h-4" /> Filtros Avanzados
-          </button>
-        </div>
-      </div>
-
-      {/* Toggles */}
-      <div className="flex gap-2 mb-8 overflow-x-auto pb-2 scrollbar-hide">
-        <button onClick={() => setFilter('all')} className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all ${filter === 'all' ? 'bg-[#0a1128] text-white shadow-lg' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}>
-          Todos Activos
-        </button>
-        <button onClick={() => setFilter('open')} className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all ${filter === 'open' ? 'bg-[#0a1128] text-white shadow-lg' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}>
-          Abiertos
-        </button>
-        <button onClick={() => setFilter('critical')} className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all ${filter === 'critical' ? 'bg-[#0a1128] text-white shadow-lg' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}>
-          Críticos
-        </button>
       </div>
 
       {/* Ticket Table */}
@@ -127,13 +110,13 @@ export default function AdminDashboard() {
               <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">Ticket</th>
               <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">Estado</th>
               <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">Prioridad</th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">Zona / Categoría</th>
+              <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">Zona / CategorÃ­a</th>
               <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">Fecha</th>
               <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-widest">Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {filteredTickets.map((ticket) => (
+            {tickets.map((ticket) => (
               <tr 
                 key={ticket.id} 
                 onClick={() => setSelectedTicket(ticket)}
@@ -161,18 +144,25 @@ export default function AdminDashboard() {
                 <td className="px-6 py-4 text-sm font-medium text-slate-500">
                   {ticket.date.split(',')[0]}
                 </td>
-                <td className="px-6 py-4 text-right">
+                <td className="px-6 py-4 text-right flex justify-end gap-2">
                   <button 
-                    onClick={(e) => handleDeleteTicket(ticket.id, e)}
+                    onClick={(e) => handleRestoreTicket(ticket.id, e)}
+                    className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                    title="Restaurar a Centro de Control"
+                  >
+                    <RotateCcw className="w-5 h-5" />
+                  </button>
+                  <button 
+                    onClick={(e) => handleDeletePermanent(ticket.id, e)}
                     className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                    title="Eliminar (Mandar a Bitácora)"
+                    title="Eliminar Permanentemente"
                   >
                     <Trash2 className="w-5 h-5" />
                   </button>
                 </td>
               </tr>
             ))}
-            {filteredTickets.length === 0 && (
+            {tickets.length === 0 && (
               <tr>
                 <td colSpan="6" className="px-6 py-12 text-center text-slate-500 font-medium">
                   No se encontraron tickets en esta vista.
@@ -229,7 +219,7 @@ export default function AdminDashboard() {
                 <div className="flex items-start gap-4 p-4 bg-white/5 rounded-2xl border border-white/5">
                   <div className="p-2 bg-cyan-500/10 rounded-lg text-cyan-400"><Tag className="w-5 h-5" /></div>
                   <div>
-                    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Categoría</p>
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">CategorÃ­a</p>
                     <p className="text-sm text-slate-200 font-semibold">{selectedTicket.category}</p>
                   </div>
                 </div>
@@ -249,7 +239,7 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              {/* Descripción */}
+              {/* DescripciÃ³n */}
               <div className="mb-8">
                 <h3 className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
                   <AlignLeft className="w-4 h-4 text-slate-500" /> Registro del Incidente
@@ -262,7 +252,7 @@ export default function AdminDashboard() {
               {/* Historial / Chat */}
               <div>
                 <h3 className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
-                  <MessageSquare className="w-4 h-4 text-slate-500" /> Bitácora de Soporte
+                  <MessageSquare className="w-4 h-4 text-slate-500" /> BitÃ¡cora de Soporte
                 </h3>
                 <div className="space-y-6 relative before:absolute before:inset-0 before:ml-6 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-px before:bg-gradient-to-b before:from-blue-500/50 before:via-white/10 before:to-transparent">
                   
@@ -273,10 +263,10 @@ export default function AdminDashboard() {
                     </div>
                     <div className="w-[calc(100%-4rem)] md:w-[calc(50%-3rem)] bg-white/5 p-5 rounded-2xl border border-white/10">
                       <div className="flex items-center justify-between mb-2">
-                        <span className="font-bold text-white text-sm">Ingeniería Nivel 1</span>
+                        <span className="font-bold text-white text-sm">IngenierÃ­a Nivel 1</span>
                         <span className="text-xs font-medium text-slate-500">Hace 2 min</span>
                       </div>
-                      <p className="text-sm text-slate-400">Análisis inicial completado. Dispositivo fuera de red. Escalamiento a cuadrilla en sitio en proceso.</p>
+                      <p className="text-sm text-slate-400">AnÃ¡lisis inicial completado. Dispositivo fuera de red. Escalamiento a cuadrilla en sitio en proceso.</p>
                     </div>
                   </div>
 
@@ -286,7 +276,7 @@ export default function AdminDashboard() {
                       +
                     </div>
                     <div className="w-[calc(100%-4rem)] md:w-[calc(50%-3rem)] bg-white/5 p-2 rounded-2xl border border-white/10 focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 transition-all flex items-center">
-                      <input type="text" placeholder="Añadir nota cifrada a la bitácora..." className="w-full px-3 py-2 text-sm outline-none bg-transparent text-slate-200 placeholder-slate-500" />
+                      <input type="text" placeholder="AÃ±adir nota cifrada a la bitÃ¡cora..." className="w-full px-3 py-2 text-sm outline-none bg-transparent text-slate-200 placeholder-slate-500" />
                       <button className="p-2 bg-blue-600 text-white rounded-xl hover:bg-blue-500 transition-colors shadow-sm">
                         <CheckCircle2 className="w-4 h-4" />
                       </button>
@@ -307,15 +297,15 @@ export default function AdminDashboard() {
                   defaultValue={selectedTicket.status}
                   className="w-full bg-[#0a1128] border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-slate-200 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all appearance-none cursor-pointer"
                 >
-                  <option value="Abierto">🔴 Triage Pendiente (Abierto)</option>
-                  <option value="En Progreso">🔵 Operación en Curso</option>
-                  <option value="Resuelto">🟢 Misión Cumplida (Resolver)</option>
+                  <option value="Abierto">ðŸ”´ Triage Pendiente (Abierto)</option>
+                  <option value="En Progreso">ðŸ”µ OperaciÃ³n en Curso</option>
+                  <option value="Resuelto">ðŸŸ¢ MisiÃ³n Cumplida (Resolver)</option>
                 </select>
               </div>
               <button 
                 onClick={() => {
                   const newStatus = document.getElementById('status-select').value;
-                  const cleanStatus = newStatus.replace(/🟢 |🔵 |🔴 |Triage Pendiente \(|\)|Operación en Curso|Misión Cumplida \(/g, '').replace('Resolver)', 'Resuelto').replace('Abierto)', 'Abierto').replace('En Curso', 'En Progreso').trim();
+                  const cleanStatus = newStatus.replace(/ðŸŸ¢ |ðŸ”µ |ðŸ”´ |Triage Pendiente \(|\)|OperaciÃ³n en Curso|MisiÃ³n Cumplida \(/g, '').replace('Resolver)', 'Resuelto').replace('Abierto)', 'Abierto').replace('En Curso', 'En Progreso').trim();
                   
                   // Mapeo seguro
                   let finalStatus = 'Abierto';

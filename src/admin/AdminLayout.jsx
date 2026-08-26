@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, MapPin, Tags, Settings, LogOut, Bell, Search, Menu, X, Monitor } from 'lucide-react';
+import { LayoutDashboard, MapPin, Tags, Settings, LogOut, Bell, Search, Menu, X, Monitor, Archive } from 'lucide-react';
 
 export default function AdminLayout() {
   const navigate = useNavigate();
@@ -23,13 +23,17 @@ export default function AdminLayout() {
     return () => window.removeEventListener('signalr-new-ticket', handleNewTicket);
   }, []);
 
-  const navigation = [
+  let navigation = [
     { name: 'Dashboard', to: '/admin/tickets', icon: LayoutDashboard },
     { name: 'Equipos', to: '/admin/equipos', icon: Monitor },
     { name: 'Zonas y Sucursales', to: '/admin/zones', icon: MapPin },
     { name: 'Categorías', to: '/admin/categories', icon: Tags },
     { name: 'Configuración', to: '/admin/settings', icon: Settings },
   ];
+
+  if (adminUser === 'Johryan') {
+    navigation.push({ name: 'Bitácora Privada', to: '/admin/bitacora', icon: Archive, isDanger: true });
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 flex">
@@ -52,12 +56,12 @@ export default function AdminLayout() {
                 className={({ isActive }) =>
                   `group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors ${
                     isActive
-                      ? 'bg-blue-600 text-white'
-                      : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                      ? (item.isDanger ? 'bg-red-900/50 text-red-400 border border-red-900' : 'bg-blue-600 text-white')
+                      : (item.isDanger ? 'text-red-500 hover:bg-red-950/30 hover:text-red-400' : 'text-slate-400 hover:bg-slate-800 hover:text-white')
                   }`
                 }
               >
-                <item.icon className="mr-3 flex-shrink-0 h-5 w-5" />
+                <item.icon className={`mr-3 flex-shrink-0 h-5 w-5 ${item.isDanger ? 'text-red-500' : ''}`} />
                 {item.name}
               </NavLink>
             ))}

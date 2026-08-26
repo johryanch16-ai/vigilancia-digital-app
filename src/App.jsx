@@ -8,6 +8,7 @@ import AdminZones from './admin/AdminZones';
 import AdminCategories from './admin/AdminCategories';
 import AdminSettings from './admin/AdminSettings';
 import AdminEquipos from './admin/AdminEquipos';
+import AdminBitacora from './admin/AdminBitacora';
 
 function App() {
   return (
@@ -23,6 +24,7 @@ function App() {
           <Route path="zones" element={<AdminZones />} />
           <Route path="categories" element={<AdminCategories />} />
           <Route path="settings" element={<AdminSettings />} />
+          <Route path="bitacora" element={<AdminBitacora />} />
         </Route>
       </Routes>
     </BrowserRouter>
