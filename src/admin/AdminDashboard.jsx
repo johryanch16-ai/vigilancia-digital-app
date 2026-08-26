@@ -3,6 +3,13 @@ import { createPortal } from 'react-dom';
 import { Filter, MoreVertical, CheckCircle2, Clock, AlertCircle, X, MapPin, Tag, Calendar, User, MessageSquare, AlignLeft, Archive, Trash2, Shield } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
+export default function AdminDashboard() {
+  const [tickets, setTickets] = useState([]);
+  const [filter, setFilter] = useState('all'); // all, open, critical, archived
+  const [selectedTicket, setSelectedTicket] = useState(null);
+  const [toastMessage, setToastMessage] = useState(null);
+  const adminUser = typeof window !== 'undefined' ? localStorage.getItem('admin_user') : '';
+
   useEffect(() => {
     fetchTickets();
   }, []);
