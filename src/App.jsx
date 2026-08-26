@@ -15,7 +15,7 @@ function App() {
       <Routes>
         <Route path="/" element={<AppClient />} />
         
-        <Route path="/admin/login" element={<AdminLogin />} />
+        <Route path="/acceso-privado-vd" element={<AdminLogin />} />
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<Navigate to="/admin/tickets" replace />} />
           <Route path="tickets" element={<AdminDashboard />} />

@@ -7,6 +7,14 @@ export default function AdminLayout() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [notifications, setNotifications] = useState(0);
 
+  // Verificación de seguridad
+  useEffect(() => {
+    const user = localStorage.getItem('admin_user');
+    if (!user) {
+      navigate('/acceso-privado-vd');
+    }
+  }, [navigate]);
+
   // Escuchar eventos globales de SignalR emitidos desde el Dashboard
   useEffect(() => {
     const handleNewTicket = () => setNotifications(prev => prev + 1);
@@ -55,7 +63,13 @@ export default function AdminLayout() {
           </nav>
         </div>
         <div className="flex-shrink-0 flex border-t border-slate-200 p-4">
-          <button onClick={() => navigate('/admin/login')} className="flex-shrink-0 w-full group block text-slate-600 hover:text-slate-900">
+          <button 
+            onClick={() => {
+              localStorage.removeItem('admin_user');
+              navigate('/');
+            }} 
+            className="flex-shrink-0 w-full group block text-slate-600 hover:text-slate-900"
+          >
             <div className="flex items-center">
               <div>
                 <LogOut className="inline-block h-5 w-5" />
