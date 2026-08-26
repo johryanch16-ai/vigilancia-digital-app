@@ -198,19 +198,20 @@ export default function AdminDashboard() {
                     className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
                     title="Eliminar (Mandar a Bitácora)"
                   >
-                        <span className="text-sm text-slate-900">{ticket.zone}</span>
-                        <span className="text-xs text-slate-500">{ticket.category}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                      {ticket.date}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </td>
+              </tr>
+            ))}
+            {filteredTickets.length === 0 && (
+              <tr>
+                <td colSpan="6" className="px-6 py-12 text-center text-slate-500 font-medium">
+                  No se encontraron tickets en esta vista.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
 
       {/* Modal / Slide-over para Detalle de Ticket */}
