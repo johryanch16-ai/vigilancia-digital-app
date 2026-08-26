@@ -107,7 +107,8 @@ export default function AdminEquipos() {
       )}
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* Desktop Table View */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="min-w-full divide-y divide-slate-200">
             <thead className="bg-slate-50">
               <tr>
@@ -131,7 +132,7 @@ export default function AdminEquipos() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className="font-mono text-sm font-medium text-slate-600 bg-slate-100 px-2 py-1 rounded-md border border-slate-200">
-                      {equipo.ip}
+                      {equipo.ip_address || '0.0.0.0'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
@@ -139,8 +140,8 @@ export default function AdminEquipos() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${
-                      equipo.status === 'Operativo' ? 'bg-emerald-100 text-emerald-800' : 
-                      equipo.status === 'Falla de Red' ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800'
+                      equipo.status === 'Activo' ? 'bg-emerald-100 text-emerald-800' : 
+                      equipo.status === 'Mantenimiento' ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800'
                     }`}>
                       {equipo.status}
                     </span>
@@ -157,6 +158,51 @@ export default function AdminEquipos() {
               ))}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Cards View */}
+        <div className="md:hidden divide-y divide-slate-100">
+          {equipos.map((equipo) => (
+            <div key={equipo.id} className="p-4 hover:bg-slate-50 transition-colors flex flex-col gap-3">
+              <div className="flex justify-between items-start">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-slate-100 text-slate-500 rounded-lg">
+                    {equipo.name.startsWith('SRV') ? <Server className="w-5 h-5" /> : <Monitor className="w-5 h-5" />}
+                  </div>
+                  <div>
+                    <div className="font-bold text-slate-900 text-sm">{equipo.name}</div>
+                    <div className="font-mono text-xs text-slate-500 mt-0.5">{equipo.ip_address || '0.0.0.0'}</div>
+                  </div>
+                </div>
+                <div className="flex gap-1 -mr-2">
+                  <button className="p-2 text-slate-400 hover:text-blue-600 rounded-lg transition-colors" onClick={() => alert('Edición en desarrollo')}>
+                    <Edit2 className="w-5 h-5" />
+                  </button>
+                  <button className="p-2 text-slate-400 hover:text-red-600 rounded-lg transition-colors" onClick={() => handleDeleteEquipo(equipo.id)}>
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+              
+              <div className="flex justify-between items-center mt-1">
+                <span className="text-xs text-slate-500 flex items-center gap-1">
+                  <span className="w-3.5 h-3.5 flex items-center justify-center bg-slate-200 rounded-full text-[8px] font-bold">Z</span>
+                  {equipo.zones?.name || 'Sin asignar'}
+                </span>
+                <span className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide rounded-full ${
+                  equipo.status === 'Activo' ? 'bg-emerald-100 text-emerald-800' : 
+                  equipo.status === 'Mantenimiento' ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800'
+                }`}>
+                  {equipo.status}
+                </span>
+              </div>
+            </div>
+          ))}
+          {equipos.length === 0 && (
+            <div className="p-8 text-center text-slate-500 font-medium">
+              No hay equipos registrados.
+            </div>
+          )}
         </div>
       </div>
     </div>
