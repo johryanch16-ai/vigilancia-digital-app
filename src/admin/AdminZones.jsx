@@ -31,6 +31,16 @@ export default function AdminZones() {
       alert("Error al crear zona: " + error.message);
     }
   };
+  const handleDeleteZone = async (id) => {
+    if (window.confirm("¿Estás seguro de eliminar esta zona?")) {
+      const { error } = await supabase.from('zones').delete().eq('id', id);
+      if (!error) {
+        setZones(zones.filter(z => z.id !== id));
+      } else {
+        alert("Error al eliminar: " + error.message);
+      }
+    }
+  };
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -99,8 +109,14 @@ export default function AdminZones() {
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium flex justify-end gap-2">
-                  <button className="p-2 text-slate-400 hover:text-blue-600 transition-colors rounded-lg hover:bg-blue-50"><Edit2 className="w-4 h-4" /></button>
-                  <button className="p-2 text-slate-400 hover:text-red-600 transition-colors rounded-lg hover:bg-red-50"><Trash2 className="w-4 h-4" /></button>
+                  <button className="p-2 text-slate-400 hover:text-blue-600 transition-colors rounded-lg hover:bg-blue-50" onClick={async () => {
+                    const newName = window.prompt("Nuevo nombre para la zona:", zone.name);
+                    if (newName && newName !== zone.name) {
+                      const { error } = await supabase.from('zones').update({ name: newName }).eq('id', zone.id);
+                      if (!error) setZones(zones.map(z => z.id === zone.id ? { ...z, name: newName } : z));
+                    }
+                  }}><Edit2 className="w-4 h-4" /></button>
+                  <button className="p-2 text-slate-400 hover:text-red-600 transition-colors rounded-lg hover:bg-red-50" onClick={() => handleDeleteZone(zone.id)}><Trash2 className="w-4 h-4" /></button>
                 </td>
               </tr>
             ))}

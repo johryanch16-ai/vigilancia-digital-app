@@ -37,123 +37,167 @@ export default function AdminDashboard() {
     }, 10000);
 
     return () => clearTimeout(timer);
+    fetchTickets();
   }, []);
 
-  const getPriorityBadge = (priority) => {
-    switch(priority) {
-      case 'Crítica': return 'bg-red-100 text-red-800 border-red-200';
-      case 'Alta': return 'bg-orange-100 text-orange-800 border-orange-200';
-      case 'Media': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'Baja': return 'bg-slate-100 text-slate-800 border-slate-200';
-      default: return 'bg-slate-100 text-slate-800';
+  const fetchTickets = async () => {
+    // In a real app we would join with zones, categories, equipos, etc.
+    const { data, error } = await supabase
+      .from('tickets')
+      .select('*, zones(name), categories(name), equipos(name)')
+      .order('created_at', { ascending: false });
+    
+    if (!error && data) {
+      // Map to frontend expected format
+      const mapped = data.map(t => ({
+        id: t.id,
+        displayId: t.id.substring(0, 8).toUpperCase(),
+        title: t.title,
+        description: t.description,
+        status: t.status,
+        priority: t.priority,
+        zone: t.zones?.name || 'Sin zona',
+        category: t.categories?.name || 'Sin categoría',
+        equipo: t.equipos?.name || 'Ninguno',
+        user: t.reporter_name,
+        date: new Date(t.created_at).toLocaleString(),
+        rawDate: t.created_at
+      }));
+      setTickets(mapped);
+    }
+  };
+
+  const getPriorityColor = (priority) => {
+    switch (priority) {
+      case 'Crítica': return 'bg-red-100 text-red-700 font-bold';
+      case 'Alta': return 'bg-orange-100 text-orange-700 font-bold';
+      case 'Media': return 'bg-blue-100 text-blue-700 font-bold';
+      default: return 'bg-slate-100 text-slate-700 font-bold';
     }
   };
 
   const getStatusIcon = (status) => {
-    switch(status) {
-      case 'Abierto': return <AlertCircle className="w-4 h-4 text-amber-500" />;
+    switch (status) {
+      case 'Abierto': return <AlertCircle className="w-4 h-4 text-orange-500" />;
       case 'En Progreso': return <Clock className="w-4 h-4 text-blue-500" />;
       case 'Resuelto': return <CheckCircle2 className="w-4 h-4 text-emerald-500" />;
+      case 'Archivado': return <Archive className="w-4 h-4 text-slate-500" />;
       default: return null;
     }
   };
 
-  // Lógica de filtrado
   const filteredTickets = tickets.filter(t => {
-    if (activeFilter === 'Todos') return true;
-    if (activeFilter === 'Abiertos') return t.status === 'Abierto';
-    if (activeFilter === 'Críticos') return t.priority === 'Crítica';
-    if (activeFilter === 'Zona Norte') return t.zone === 'Zona Norte';
-    return true;
+    if (filter === 'archived') return t.status === 'Archivado';
+    
+    // Si no estamos en archivados, ocultar siempre los archivados
+    if (t.status === 'Archivado') return false;
+
+    if (filter === 'open') return t.status === 'Abierto';
+    if (filter === 'critical') return t.priority === 'Crítica';
+    return true; // all
   });
 
+  const handleDeleteTicket = async (id, e) => {
+    e.stopPropagation();
+    if (window.confirm('¿Estás seguro de enviar este ticket a la Bitácora (Archivo)?')) {
+      const { error } = await supabase.from('tickets').update({ status: 'Archivado' }).eq('id', id);
+      if (!error) {
+        setTickets(tickets.map(t => t.id === id ? { ...t, status: 'Archivado' } : t));
+        setToastMessage(`Ticket ${id.substring(0,8)} archivado.`);
+        setTimeout(() => setToastMessage(null), 3000);
+      }
+    }
+  };
+
   return (
-    <div className="p-6 max-w-7xl mx-auto relative h-full">
-      {/* Toast Notification (SignalR) */}
+    <div className="p-6 max-w-7xl mx-auto min-h-screen pb-24">
+      {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-4 right-4 bg-slate-900 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center gap-3 animate-bounce z-50 border border-slate-700">
-          <span className="flex h-3 w-3 relative">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
-          </span>
-          <p className="font-medium text-sm">{toastMessage}</p>
+        <div className="fixed top-6 right-6 z-50 bg-[#0a1128] border border-blue-500/30 text-white px-6 py-4 rounded-xl shadow-[0_0_30px_rgba(37,99,235,0.3)] animate-in slide-in-from-top-10 flex items-center gap-3">
+          <Shield className="w-5 h-5 text-blue-400" />
+          <span className="font-medium text-sm tracking-wide">{toastMessage}</span>
         </div>
       )}
 
-      {/* Header & Actions */}
+      {/* Header */}
       <div className="sm:flex sm:items-center sm:justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Centro de Control de Tickets</h1>
-          <p className="mt-1 text-sm text-slate-500">Gestión en tiempo real de las solicitudes de los clientes.</p>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Centro de Control de Tickets</h1>
+          <p className="mt-1 text-sm text-slate-500 font-medium">Gestión en tiempo real de las solicitudes de los clientes.</p>
         </div>
         <div className="mt-4 sm:mt-0 flex gap-3">
-          <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 shadow-sm transition-colors">
+          <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-50 shadow-sm transition-colors">
             <Filter className="w-4 h-4" /> Filtros Avanzados
           </button>
         </div>
       </div>
 
-      {/* Filtros Visuales Rápidos */}
-      <div className="flex gap-4 mb-6 overflow-x-auto pb-2">
-        {['Todos', 'Abiertos', 'Críticos', 'Zona Norte'].map((filter, i) => (
-          <button 
-            key={i} 
-            onClick={() => setActiveFilter(filter)}
-            className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap border transition-all ${
-              activeFilter === filter 
-                ? 'bg-slate-800 text-white border-slate-800 shadow-md' 
-                : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
-            }`}
-          >
-            {filter}
+      {/* Toggles */}
+      <div className="flex gap-2 mb-8 overflow-x-auto pb-2 scrollbar-hide">
+        <button onClick={() => setFilter('all')} className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all ${filter === 'all' ? 'bg-[#0a1128] text-white shadow-lg' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}>
+          Todos Activos
+        </button>
+        <button onClick={() => setFilter('open')} className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all ${filter === 'open' ? 'bg-[#0a1128] text-white shadow-lg' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}>
+          Abiertos
+        </button>
+        <button onClick={() => setFilter('critical')} className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all ${filter === 'critical' ? 'bg-[#0a1128] text-white shadow-lg' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}>
+          Críticos
+        </button>
+        {adminUser === 'Johryan' && (
+          <button onClick={() => setFilter('archived')} className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all ${filter === 'archived' ? 'bg-red-900 text-white shadow-lg border-red-800' : 'bg-white text-red-600 border border-red-200 hover:bg-red-50'}`}>
+            <Archive className="w-4 h-4 inline-block mr-1" /> Bitácora Privada
           </button>
-        ))}
+        )}
       </div>
 
-      {/* Tabla de Tickets */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-slate-200">
-            <thead className="bg-slate-50">
-              <tr>
-                <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Ticket</th>
-                <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Estado</th>
-                <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Prioridad</th>
-                <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Zona / Categoría</th>
-                <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Tiempo</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-slate-100">
-              {filteredTickets.length === 0 ? (
-                <tr>
-                  <td colSpan="5" className="px-6 py-8 text-center text-slate-500">No hay tickets que coincidan con este filtro.</td>
-                </tr>
-              ) : (
-                filteredTickets.map((ticket) => (
-                  <tr 
-                    key={ticket.id} 
-                    onClick={() => setSelectedTicket(ticket)}
-                    className="hover:bg-slate-50/80 transition-colors group cursor-pointer"
+      {/* Ticket Table */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <table className="min-w-full divide-y divide-slate-100">
+          <thead className="bg-slate-50/50">
+            <tr>
+              <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">Ticket</th>
+              <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">Estado</th>
+              <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">Prioridad</th>
+              <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">Zona / Categoría</th>
+              <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">Fecha</th>
+              <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-widest">Acciones</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {filteredTickets.map((ticket) => (
+              <tr 
+                key={ticket.id} 
+                onClick={() => setSelectedTicket(ticket)}
+                className="hover:bg-slate-50/80 transition-colors cursor-pointer group"
+              >
+                <td className="px-6 py-4">
+                  <div className="font-bold text-slate-900 text-sm">TKT-{ticket.displayId}</div>
+                  <div className="text-slate-500 text-sm mt-0.5 truncate max-w-[200px]">{ticket.title}</div>
+                </td>
+                <td className="px-6 py-4">
+                  <div className="flex items-center gap-2">
+                    {getStatusIcon(ticket.status)}
+                    <span className="text-sm font-bold text-slate-700">{ticket.status}</span>
+                  </div>
+                </td>
+                <td className="px-6 py-4">
+                  <span className={`px-3 py-1 rounded-full text-xs ${getPriorityColor(ticket.priority)}`}>
+                    {ticket.priority}
+                  </span>
+                </td>
+                <td className="px-6 py-4">
+                  <div className="text-sm font-medium text-slate-700">{ticket.zone}</div>
+                  <div className="text-xs text-slate-500 mt-0.5">{ticket.category}</div>
+                </td>
+                <td className="px-6 py-4 text-sm font-medium text-slate-500">
+                  {ticket.date.split(',')[0]}
+                </td>
+                <td className="px-6 py-4 text-right">
+                  <button 
+                    onClick={(e) => handleDeleteTicket(ticket.id, e)}
+                    className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                    title="Eliminar (Mandar a Bitácora)"
                   >
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex flex-col">
-                        <span className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors">{ticket.id}</span>
-                        <span className="text-sm text-slate-500 truncate max-w-[200px]">{ticket.title}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        {getStatusIcon(ticket.status)}
-                        <span className="text-sm font-medium text-slate-700">{ticket.status}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border ${getPriorityBadge(ticket.priority)}`}>
-                        {ticket.priority}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex flex-col">
                         <span className="text-sm text-slate-900">{ticket.zone}</span>
                         <span className="text-xs text-slate-500">{ticket.category}</span>
                       </div>

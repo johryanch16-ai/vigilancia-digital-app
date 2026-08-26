@@ -40,6 +40,17 @@ export default function AdminEquipos() {
     }
   };
 
+  const handleDeleteEquipo = async (id) => {
+    if (window.confirm("¿Estás seguro de eliminar este equipo?")) {
+      const { error } = await supabase.from('equipos').delete().eq('id', id);
+      if (!error) {
+        setEquipos(equipos.filter(e => e.id !== id));
+      } else {
+        alert("Error al eliminar: " + error.message);
+      }
+    }
+  };
+
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <div className="sm:flex sm:items-center sm:justify-between mb-8">
@@ -134,10 +145,10 @@ export default function AdminEquipos() {
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium flex justify-end gap-2">
-                  <button className="p-2 text-slate-400 hover:text-blue-600 transition-colors rounded-lg hover:bg-blue-50" title="Editar">
+                  <button className="p-2 text-slate-400 hover:text-blue-600 transition-colors rounded-lg hover:bg-blue-50" title="Editar" onClick={() => alert('Edición en desarrollo')}>
                     <Edit2 className="w-4 h-4" />
                   </button>
-                  <button className="p-2 text-slate-400 hover:text-red-600 transition-colors rounded-lg hover:bg-red-50" title="Eliminar">
+                  <button className="p-2 text-slate-400 hover:text-red-600 transition-colors rounded-lg hover:bg-red-50" title="Eliminar" onClick={() => handleDeleteEquipo(equipo.id)}>
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </td>

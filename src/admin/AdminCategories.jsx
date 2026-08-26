@@ -31,6 +31,17 @@ export default function AdminCategories() {
     }
   };
 
+  const handleDeleteCategory = async (id) => {
+    if (window.confirm("¿Estás seguro de eliminar esta categoría?")) {
+      const { error } = await supabase.from('categories').delete().eq('id', id);
+      if (!error) {
+        setCategories(categories.filter(c => c.id !== id));
+      } else {
+        alert("Error al eliminar: " + error.message);
+      }
+    }
+  };
+
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <div className="sm:flex sm:items-center sm:justify-between mb-8">
@@ -90,8 +101,8 @@ export default function AdminCategories() {
                   <span className="bg-slate-100 text-slate-700 px-2 py-1 rounded-md font-bold">0</span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium flex justify-end gap-2">
-                  <button className="p-2 text-slate-400 hover:text-blue-600 transition-colors rounded-lg hover:bg-blue-50"><Edit2 className="w-4 h-4" /></button>
-                  <button className="p-2 text-slate-400 hover:text-red-600 transition-colors rounded-lg hover:bg-red-50"><Trash2 className="w-4 h-4" /></button>
+                  <button className="p-2 text-slate-400 hover:text-blue-600 transition-colors rounded-lg hover:bg-blue-50" onClick={() => alert('Función de edición en desarrollo')}><Edit2 className="w-4 h-4" /></button>
+                  <button className="p-2 text-slate-400 hover:text-red-600 transition-colors rounded-lg hover:bg-red-50" onClick={() => handleDeleteCategory(cat.id)}><Trash2 className="w-4 h-4" /></button>
                 </td>
               </tr>
             ))}
