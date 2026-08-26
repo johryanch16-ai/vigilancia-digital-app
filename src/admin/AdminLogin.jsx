@@ -1,15 +1,28 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Shield, Lock, User } from 'lucide-react';
+import { Shield, Lock, User, AlertCircle } from 'lucide-react';
 
 export default function AdminLogin() {
   const navigate = useNavigate();
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
 
   const handleLogin = (e) => {
     e.preventDefault();
-    // Aquí iría la llamada a ASP.NET para obtener el JWT
-    // fetch('/api/auth/login', { ... }).then(res => saveToken(res.token))
-    navigate('/admin/tickets');
+    
+    // Usuarios solicitados por el cliente
+    const validUsers = {
+      'Johryan': '03042022',
+      'Johnny': 'Julian0510'
+    };
+
+    if (validUsers[username] === password) {
+      localStorage.setItem('admin_user', username);
+      navigate('/admin/tickets');
+    } else {
+      setError('Usuario o contraseña incorrectos');
+    }
   };
 
   return (
@@ -24,12 +37,20 @@ export default function AdminLogin() {
           Acceso Restringido
         </h2>
         <p className="mt-2 text-center text-sm text-slate-600">
-          Jcraft Support Dashboard
+          Vigilancia Digital - Admin Console
         </p>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-4 shadow-xl sm:rounded-2xl sm:px-10 border border-slate-100">
+          
+          {error && (
+            <div className="mb-4 bg-red-50 text-red-700 p-3 rounded-lg flex items-center gap-2 text-sm font-bold border border-red-100">
+              <AlertCircle className="w-5 h-5 flex-shrink-0" />
+              {error}
+            </div>
+          )}
+
           <form className="space-y-6" onSubmit={handleLogin}>
             <div>
               <label className="block text-sm font-medium text-slate-700">Usuario</label>
@@ -37,7 +58,14 @@ export default function AdminLogin() {
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <User className="h-5 w-5 text-slate-400" />
                 </div>
-                <input required type="text" className="focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 sm:text-sm border-slate-300 rounded-lg py-2.5 border outline-none" placeholder="admin@jcraft.com" />
+                <input 
+                  required 
+                  type="text" 
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 sm:text-sm border-slate-300 rounded-lg py-2.5 border outline-none" 
+                  placeholder="Ej. Johryan" 
+                />
               </div>
             </div>
 
@@ -47,7 +75,14 @@ export default function AdminLogin() {
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Lock className="h-5 w-5 text-slate-400" />
                 </div>
-                <input required type="password" className="focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 sm:text-sm border-slate-300 rounded-lg py-2.5 border outline-none" placeholder="••••••••" />
+                <input 
+                  required 
+                  type="password" 
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 sm:text-sm border-slate-300 rounded-lg py-2.5 border outline-none" 
+                  placeholder="••••••••" 
+                />
               </div>
             </div>
 
