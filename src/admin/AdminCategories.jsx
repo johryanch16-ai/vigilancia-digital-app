@@ -46,10 +46,10 @@ export default function AdminCategories() {
     <div className="p-6 max-w-7xl mx-auto">
       <div className="sm:flex sm:items-center sm:justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
             <Tags className="w-6 h-6 text-blue-600" /> Gestión de Categorías
           </h1>
-          <p className="mt-1 text-sm text-slate-500">Define las líneas de servicio para clasificar los tickets entrantes.</p>
+          <p className="mt-1 text-sm text-slate-400">Define las líneas de servicio para clasificar los tickets entrantes.</p>
         </div>
         <div className="mt-4 sm:mt-0 flex gap-3">
           <button 
@@ -64,18 +64,18 @@ export default function AdminCategories() {
       {isModalOpen && typeof document !== 'undefined' && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-0">
           <div className="absolute inset-0 bg-[#0a1128]/80 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}></div>
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-              <h3 className="text-lg font-bold text-slate-900">Nueva Categoría</h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
+          <div className="relative bg-[#0f172a] rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="px-6 py-4 border-b border-slate-800 flex justify-between items-center bg-[#0a1128]">
+              <h3 className="text-lg font-bold text-white">Nueva Categoría</h3>
+              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-400"><X className="w-5 h-5" /></button>
             </div>
             <form onSubmit={handleAddCategory} className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1">Nombre de la Categoría</label>
-                <input required name="name" type="text" placeholder="Ej. Soporte a Cajeros" className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                <label className="block text-sm font-bold text-slate-300 mb-1">Nombre de la Categoría</label>
+                <input required name="name" type="text" placeholder="Ej. Soporte a Cajeros" className="w-full px-3 py-2 border border-slate-600 rounded-lg outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
               </div>
               <div className="pt-4 flex gap-3">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-lg hover:bg-slate-200 transition-colors">Cancelar</button>
+                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 px-4 py-2 bg-slate-100 text-slate-300 font-bold rounded-lg hover:bg-slate-200 transition-colors">Cancelar</button>
                 <button type="submit" className="flex-1 px-4 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-colors">Crear Categoría</button>
               </div>
             </form>
@@ -84,22 +84,22 @@ export default function AdminCategories() {
         document.body
       )}
 
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      <div className="bg-[#0f172a] rounded-xl shadow-sm border border-slate-700 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-slate-200">
-            <thead className="bg-slate-50">
+          <table className="min-w-full divide-y divide-slate-700">
+            <thead className="bg-[#0a1128]">
               <tr>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Nombre de la Categoría</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Tickets Activos</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Nombre de la Categoría</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Tickets Activos</th>
                 <th className="px-6 py-4 relative"><span className="sr-only">Acciones</span></th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-slate-100">
+            <tbody className="bg-[#0f172a] divide-y divide-slate-800">
               {categories.map((cat) => (
-                <tr key={cat.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-slate-900">{cat.name}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                    <span className="bg-slate-100 text-slate-700 px-2 py-1 rounded-md font-bold">0</span>
+                <tr key={cat.id} className="hover:bg-[#0a1128] transition-colors">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-white">{cat.name}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-400">
+                    <span className="bg-slate-100 text-slate-300 px-2 py-1 rounded-md font-bold">0</span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium flex justify-end gap-2">
                     <button className="p-2 text-slate-400 hover:text-blue-600 transition-colors rounded-lg hover:bg-blue-50" onClick={() => alert('Función de edición en desarrollo')}><Edit2 className="w-4 h-4" /></button>

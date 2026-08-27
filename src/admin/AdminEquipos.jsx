@@ -55,10 +55,10 @@ export default function AdminEquipos() {
     <div className="p-6 max-w-7xl mx-auto">
       <div className="sm:flex sm:items-center sm:justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
             <Monitor className="w-6 h-6 text-blue-600" /> Inventario de Equipos
           </h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-slate-400">
             Registra las computadoras y servidores para asociarlos a los reportes de incidentes.
           </p>
         </div>
@@ -75,29 +75,29 @@ export default function AdminEquipos() {
       {isModalOpen && typeof document !== 'undefined' && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-0">
           <div className="absolute inset-0 bg-[#0a1128]/80 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}></div>
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-              <h3 className="text-lg font-bold text-slate-900">Nuevo Equipo</h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
+          <div className="relative bg-[#0f172a] rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="px-6 py-4 border-b border-slate-800 flex justify-between items-center bg-[#0a1128]">
+              <h3 className="text-lg font-bold text-white">Nuevo Equipo</h3>
+              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-400"><X className="w-5 h-5" /></button>
             </div>
             <form onSubmit={handleAddEquipo} className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1">Nombre del Equipo</label>
-                <input required name="name" type="text" placeholder="Ej. PC-CAJA-04" className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                <label className="block text-sm font-bold text-slate-300 mb-1">Nombre del Equipo</label>
+                <input required name="name" type="text" placeholder="Ej. PC-CAJA-04" className="w-full px-3 py-2 border border-slate-600 rounded-lg outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
               </div>
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1">Dirección IP <span className="text-slate-400 font-normal">(Opcional)</span></label>
-                <input name="ip" type="text" placeholder="192.168.x.x" className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 font-mono text-sm" />
+                <label className="block text-sm font-bold text-slate-300 mb-1">Dirección IP <span className="text-slate-400 font-normal">(Opcional)</span></label>
+                <input name="ip" type="text" placeholder="192.168.x.x" className="w-full px-3 py-2 border border-slate-600 rounded-lg outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 font-mono text-sm" />
               </div>
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1">Sucursal / Zona</label>
-                <select required name="zone_id" className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white">
+                <label className="block text-sm font-bold text-slate-300 mb-1">Sucursal / Zona</label>
+                <select required name="zone_id" className="w-full px-3 py-2 border border-slate-600 rounded-lg outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-[#0f172a]">
                   <option value="">Selecciona una zona...</option>
                   {zones.map(z => <option key={z.id} value={z.id}>{z.name}</option>)}
                 </select>
               </div>
               <div className="pt-4 flex gap-3">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-lg hover:bg-slate-200 transition-colors">Cancelar</button>
+                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 px-4 py-2 bg-slate-100 text-slate-300 font-bold rounded-lg hover:bg-slate-200 transition-colors">Cancelar</button>
                 <button type="submit" className="flex-1 px-4 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-colors">Guardar Equipo</button>
               </div>
             </form>
@@ -106,36 +106,36 @@ export default function AdminEquipos() {
         document.body
       )}
 
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      <div className="bg-[#0f172a] rounded-xl shadow-sm border border-slate-700 overflow-hidden">
         {/* Desktop Table View */}
         <div className="hidden md:block overflow-x-auto">
-          <table className="min-w-full divide-y divide-slate-200">
-            <thead className="bg-slate-50">
+          <table className="min-w-full divide-y divide-slate-700">
+            <thead className="bg-[#0a1128]">
               <tr>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Nombre del Equipo</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Dirección IP</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Sucursal / Zona</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Estado Actual</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Nombre del Equipo</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Dirección IP</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Sucursal / Zona</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Estado Actual</th>
                 <th className="px-6 py-4 relative"><span className="sr-only">Acciones</span></th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-slate-100">
+            <tbody className="bg-[#0f172a] divide-y divide-slate-800">
               {equipos.map((equipo) => (
-                <tr key={equipo.id} className="hover:bg-slate-50 transition-colors">
+                <tr key={equipo.id} className="hover:bg-[#0a1128] transition-colors">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center gap-3">
-                      <div className="p-2 bg-slate-100 text-slate-500 rounded-lg">
+                      <div className="p-2 bg-slate-100 text-slate-400 rounded-lg">
                         {equipo.name.startsWith('SRV') ? <Server className="w-4 h-4" /> : <Monitor className="w-4 h-4" />}
                       </div>
-                      <span className="text-sm font-bold text-slate-900">{equipo.name}</span>
+                      <span className="text-sm font-bold text-white">{equipo.name}</span>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="font-mono text-sm font-medium text-slate-600 bg-slate-100 px-2 py-1 rounded-md border border-slate-200">
+                    <span className="font-mono text-sm font-medium text-slate-400 bg-slate-100 px-2 py-1 rounded-md border border-slate-700">
                       {equipo.ip_address || '0.0.0.0'}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-400">
                     {equipo.zones?.name || 'Sin asignar'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -161,17 +161,17 @@ export default function AdminEquipos() {
         </div>
 
         {/* Mobile Cards View */}
-        <div className="md:hidden divide-y divide-slate-100">
+        <div className="md:hidden divide-y divide-slate-800">
           {equipos.map((equipo) => (
-            <div key={equipo.id} className="p-4 hover:bg-slate-50 transition-colors flex flex-col gap-3">
+            <div key={equipo.id} className="p-4 hover:bg-[#0a1128] transition-colors flex flex-col gap-3">
               <div className="flex justify-between items-start">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-slate-100 text-slate-500 rounded-lg">
+                  <div className="p-2 bg-slate-100 text-slate-400 rounded-lg">
                     {equipo.name.startsWith('SRV') ? <Server className="w-5 h-5" /> : <Monitor className="w-5 h-5" />}
                   </div>
                   <div>
-                    <div className="font-bold text-slate-900 text-sm">{equipo.name}</div>
-                    <div className="font-mono text-xs text-slate-500 mt-0.5">{equipo.ip_address || '0.0.0.0'}</div>
+                    <div className="font-bold text-white text-sm">{equipo.name}</div>
+                    <div className="font-mono text-xs text-slate-400 mt-0.5">{equipo.ip_address || '0.0.0.0'}</div>
                   </div>
                 </div>
                 <div className="flex gap-1 -mr-2">
@@ -185,7 +185,7 @@ export default function AdminEquipos() {
               </div>
               
               <div className="flex justify-between items-center mt-1">
-                <span className="text-xs text-slate-500 flex items-center gap-1">
+                <span className="text-xs text-slate-400 flex items-center gap-1">
                   <span className="w-3.5 h-3.5 flex items-center justify-center bg-slate-200 rounded-full text-[8px] font-bold">Z</span>
                   {equipo.zones?.name || 'Sin asignar'}
                 </span>
@@ -199,7 +199,7 @@ export default function AdminEquipos() {
             </div>
           ))}
           {equipos.length === 0 && (
-            <div className="p-8 text-center text-slate-500 font-medium">
+            <div className="p-8 text-center text-slate-400 font-medium">
               No hay equipos registrados.
             </div>
           )}

@@ -36,7 +36,7 @@ export default function AdminLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex">
+    <div className="min-h-screen bg-[#0a1128] flex">
       {/* Sidebar Desktop */}
       <div className="hidden md:flex md:w-64 md:flex-col bg-slate-900 border-r border-slate-800">
         <div className="h-20 flex items-center px-6 border-b border-slate-800">
@@ -67,13 +67,13 @@ export default function AdminLayout() {
             ))}
           </nav>
         </div>
-        <div className="flex-shrink-0 flex border-t border-slate-200 p-4">
+        <div className="flex-shrink-0 flex border-t border-slate-700 p-4">
           <button 
             onClick={() => {
               localStorage.removeItem('admin_user');
               navigate('/');
             }} 
-            className="flex-shrink-0 w-full group block text-slate-600 hover:text-slate-900"
+            className="flex-shrink-0 w-full group block text-slate-400 hover:text-white"
           >
             <div className="flex items-center">
               <div>
@@ -90,12 +90,12 @@ export default function AdminLayout() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col w-0 overflow-hidden">
         {/* Header */}
-        <header className="bg-white shadow-sm border-b border-slate-200 z-10">
+        <header className="bg-[#0f172a] shadow-sm border-b border-slate-700 z-10">
           <div className="flex-1 flex justify-between h-16 px-4 sm:px-6 lg:px-8">
             <div className="flex-1 flex items-center">
               <button 
                 onClick={() => setIsMobileMenuOpen(true)}
-                className="md:hidden p-2 rounded-md text-slate-400 hover:text-slate-500 hover:bg-slate-100"
+                className="md:hidden p-2 rounded-md text-slate-400 hover:text-slate-400 hover:bg-slate-100"
               >
                 <Menu className="h-6 w-6" />
               </button>
@@ -104,20 +104,20 @@ export default function AdminLayout() {
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <Search className="h-4 w-4 text-slate-400" />
                   </div>
-                  <input type="text" placeholder="Buscar tickets, usuarios..." className="block w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg leading-5 bg-slate-50 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-all" />
+                  <input type="text" placeholder="Buscar tickets, usuarios..." className="block w-full pl-10 pr-3 py-2 border border-slate-600 rounded-lg leading-5 bg-[#0a1128] placeholder-slate-400 focus:outline-none focus:bg-[#0f172a] focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-all" />
                 </div>
               </div>
             </div>
             <div className="ml-4 flex items-center md:ml-6 gap-4">
-              <button className="relative bg-white p-1 rounded-full text-slate-400 hover:text-slate-500 focus:outline-none">
+              <button className="relative bg-[#0f172a] p-1 rounded-full text-slate-400 hover:text-slate-400 focus:outline-none">
                 <Bell className="h-6 w-6" />
                 {notifications > 0 && (
                   <span className="absolute top-0 right-0 block h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white" />
                 )}
               </button>
               <div className="relative flex items-center gap-2">
-                <img className="h-8 w-8 rounded-full border border-slate-200" src={`https://ui-avatars.com/api/?name=${adminUser || 'Admin'}&background=0D8ABC&color=fff`} alt="" />
-                <span className="hidden sm:block text-sm font-medium text-slate-700">{adminUser || 'Admin Support'}</span>
+                <img className="h-8 w-8 rounded-full border border-slate-700" src={`https://ui-avatars.com/api/?name=${adminUser || 'Admin'}&background=0D8ABC&color=fff`} alt="" />
+                <span className="hidden sm:block text-sm font-medium text-slate-300">{adminUser || 'Admin Support'}</span>
               </div>
             </div>
           </div>

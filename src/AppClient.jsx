@@ -4,7 +4,7 @@ import { Shield, Cctv } from 'lucide-react';
 
 function AppClient() {
   return (
-    <div className="min-h-screen bg-[#0a1128] py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden font-sans">
+    <div className="min-h-screen bg-[#0a1128] py-6 sm:py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden font-sans">
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-[600px] h-[600px] bg-blue-600 rounded-full mix-blend-screen filter blur-[150px] opacity-20"></div>
         <div className="absolute top-40 -left-20 w-[500px] h-[500px] bg-cyan-500 rounded-full mix-blend-screen filter blur-[150px] opacity-15"></div>
