@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, MapPin, Tags, Settings, LogOut, Bell, Search, Menu, X, Monitor, Archive } from 'lucide-react';
+import { LayoutDashboard, MapPin, Tags, Settings, LogOut, Bell, Search, Menu, X, Monitor, Archive, Users, ExternalLink } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 export default function AdminLayout() {
   const navigate = useNavigate();
@@ -11,8 +12,8 @@ export default function AdminLayout() {
 
   // Verificación de seguridad
   useEffect(() => {
-    if (!adminUser) {
-      navigate('/acceso-privado-vd');
+    if (!adminUser || localStorage.getItem('user_role') !== 'admin') {
+      navigate('/');
     }
   }, [navigate, adminUser]);
 
@@ -23,8 +24,21 @@ export default function AdminLayout() {
     return () => window.removeEventListener('signalr-new-ticket', handleNewTicket);
   }, []);
 
+  // Buscar notificaciones de reseteo de contraseñas
+  useEffect(() => {
+    const fetchPasswordResets = async () => {
+      const { count } = await supabase
+        .from('password_resets')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'Pendiente');
+      if (count) setNotifications(prev => prev + count);
+    };
+    fetchPasswordResets();
+  }, []);
+
   let navigation = [
     { name: 'Dashboard', to: '/admin/tickets', icon: LayoutDashboard },
+    { name: 'Usuarios Clientes', to: '/admin/users', icon: Users },
     { name: 'Equipos', to: '/admin/equipos', icon: Monitor },
     { name: 'Zonas y Sucursales', to: '/admin/zones', icon: MapPin },
     { name: 'Categorías', to: '/admin/categories', icon: Tags },
@@ -67,10 +81,21 @@ export default function AdminLayout() {
             ))}
           </nav>
         </div>
-        <div className="flex-shrink-0 flex border-t border-slate-700 p-4">
+          <div className="flex-shrink-0 border-t border-slate-700 p-4 space-y-4">
+          <button 
+            onClick={() => navigate('/cliente')} 
+            className="flex-shrink-0 w-full group flex items-center justify-between text-slate-400 hover:text-cyan-400 transition-colors"
+          >
+            <div className="flex items-center">
+              <ExternalLink className="inline-block h-5 w-5 mr-3" />
+              <p className="text-sm font-medium">Ir a Vista Cliente</p>
+            </div>
+          </button>
+          
           <button 
             onClick={() => {
               localStorage.removeItem('admin_user');
+              localStorage.removeItem('user_role');
               navigate('/');
             }} 
             className="flex-shrink-0 w-full group block text-slate-400 hover:text-white"
