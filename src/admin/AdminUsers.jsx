@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Plus, Trash2, Edit2, Search, Mail, Phone, Building2, UserCircle, Key } from 'lucide-react';
+import { Users, Plus, Trash2, Edit2, Search, Mail, Phone, Building2, UserCircle, Key, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 export default function AdminUsers() {
