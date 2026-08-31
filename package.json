@@ -13,6 +13,7 @@
     "@microsoft/signalr": "^10.0.11",
     "@supabase/supabase-js": "^2.112.4",
     "@tailwindcss/vite": "^4.3.3",
+    "crypto-js": "^4.2.0",
     "lucide-react": "^1.33.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",

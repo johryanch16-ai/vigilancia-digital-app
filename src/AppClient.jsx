@@ -1,12 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import TicketForm from './TicketForm';
-import { Shield, Cctv, LogOut, ArrowLeft } from 'lucide-react';
+import ClientPasswords from './ClientPasswords';
+import { Shield, Cctv, LogOut, ArrowLeft, Ticket, Lock } from 'lucide-react';
 
 function AppClient() {
   const navigate = useNavigate();
+  const [clientUser, setClientUser] = useState(null);
   const [clientName, setClientName] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
+  const [activeTab, setActiveTab] = useState('tickets');
 
   useEffect(() => {
     const role = localStorage.getItem('user_role');
@@ -16,10 +19,12 @@ function AppClient() {
     if (role === 'admin' && adminUser) {
       setIsAdmin(true);
       setClientName('Administrador');
+      // Admin might want to test the UI, but doesn't have an ID for passwords
     } else if (role === 'client' && clientUserStr) {
       try {
         const client = JSON.parse(clientUserStr);
         setClientName(client.name);
+        setClientUser(client);
       } catch(e) {}
     } else {
       navigate('/');
@@ -36,8 +41,11 @@ function AppClient() {
     }
   };
 
+  const hasPasswords = clientUser?.has_password_access || isAdmin;
+
   return (
     <div className="min-h-screen bg-[#0a1128] py-6 sm:py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden font-sans">
+      {/* Background decorations */}
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-[600px] h-[600px] bg-blue-600 rounded-full mix-blend-screen filter blur-[150px] opacity-20"></div>
         <div className="absolute top-40 -left-20 w-[500px] h-[500px] bg-cyan-500 rounded-full mix-blend-screen filter blur-[150px] opacity-15"></div>
@@ -45,9 +53,9 @@ function AppClient() {
       </div>
       
       <div className="relative z-10 max-w-4xl mx-auto">
-        <header className="mb-10 text-center sm:text-left flex flex-col sm:flex-row items-center justify-between gap-5">
+        <header className="mb-8 text-center sm:text-left flex flex-col sm:flex-row items-center justify-between gap-5">
           <div className="flex flex-col sm:flex-row items-center gap-5">
-            <div className="relative w-20 h-20 bg-gradient-to-br from-blue-900 to-slate-900 rounded-2xl flex items-center justify-center border border-blue-500/30 shadow-[0_0_30px_rgba(59,130,246,0.3)] overflow-hidden p-0.5">
+            <div className="relative w-20 h-20 bg-gradient-to-br from-blue-900 to-slate-900 rounded-2xl flex items-center justify-center border border-blue-500/30 shadow-[0_0_30px_rgba(59,130,246,0.3)] overflow-hidden p-0.5 shrink-0">
               <img src="/logo.jpg" alt="Vigilancia Digital" className="w-full h-full object-cover rounded-[14px]" />
             </div>
             <div>
@@ -74,8 +82,41 @@ function AppClient() {
             </button>
           </div>
         </header>
+
+        {/* Navegación por pestañas (solo si tiene acceso a contraseñas) */}
+        {hasPasswords && (
+          <div className="flex justify-center sm:justify-start gap-2 mb-8 bg-[#0f172a]/80 p-1.5 rounded-xl border border-slate-700/50 w-fit mx-auto sm:mx-0 backdrop-blur-md">
+            <button
+              onClick={() => setActiveTab('tickets')}
+              className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${
+                activeTab === 'tickets' 
+                  ? 'bg-cyan-600 text-white shadow-md' 
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
+              }`}
+            >
+              <Ticket className="w-4 h-4" />
+              Soporte / Tickets
+            </button>
+            <button
+              onClick={() => setActiveTab('passwords')}
+              className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${
+                activeTab === 'passwords' 
+                  ? 'bg-blue-600 text-white shadow-md' 
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
+              }`}
+            >
+              <Lock className="w-4 h-4" />
+              Mis Contraseñas
+            </button>
+          </div>
+        )}
+
         <main>
-          <TicketForm />
+          {activeTab === 'tickets' ? (
+            <TicketForm />
+          ) : (
+            <ClientPasswords user={clientUser} />
+          )}
         </main>
       </div>
     </div>
