@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Filter, MoreVertical, CheckCircle2, Clock, AlertCircle, X, MapPin, Tag, Calendar, User, MessageSquare, AlignLeft, Archive, Trash2, Shield } from 'lucide-react';
+import { Filter, MoreVertical, CheckCircle2, Clock, AlertCircle, X, MapPin, Tag, Calendar, User, MessageSquare, AlignLeft, Archive, Trash2, Shield, Key, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { decryptPassword } from '../lib/crypto';
 
 export default function AdminDashboard() {
   const [tickets, setTickets] = useState([]);
@@ -9,6 +10,12 @@ export default function AdminDashboard() {
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
   const adminUser = typeof window !== 'undefined' ? localStorage.getItem('admin_user') : '';
+
+  // Vault states
+  const [vaultPasswords, setVaultPasswords] = useState(null);
+  const [loadingVault, setLoadingVault] = useState(false);
+  const [vaultError, setVaultError] = useState(null);
+  const [visiblePasswords, setVisiblePasswords] = useState({});
 
   useEffect(() => {
     fetchTickets();
@@ -81,6 +88,74 @@ export default function AdminDashboard() {
         setTimeout(() => setToastMessage(null), 3000);
       }
     }
+  };
+
+  const handleOpenVault = async () => {
+    if (!selectedTicket || !selectedTicket.user) return;
+    
+    setLoadingVault(true);
+    setVaultError(null);
+    setVaultPasswords(null);
+    setVisiblePasswords({});
+
+    try {
+      // 1. Fetch user by name to check permissions
+      const { data: users, error: userError } = await supabase
+        .from('users_client')
+        .select('*')
+        .ilike('name', selectedTicket.user)
+        .limit(1);
+
+      if (userError) throw userError;
+      
+      if (!users || users.length === 0) {
+        setVaultError("Cliente no encontrado en la base de datos.");
+        setLoadingVault(false);
+        return;
+      }
+
+      const client = users[0];
+
+      if (!client.has_password_access) {
+        setVaultError("Este cliente no tiene la Bóveda de Contraseñas habilitada.");
+        setLoadingVault(false);
+        return;
+      }
+
+      // 2. Fetch passwords
+      const { data: passwords, error: passError } = await supabase
+        .from('user_passwords')
+        .select('*')
+        .eq('user_id', client.id)
+        .order('created_at', { ascending: false });
+
+      if (passError) throw passError;
+
+      if (!passwords || passwords.length === 0) {
+        setVaultPasswords([]);
+      } else {
+        const decrypted = passwords.map(p => {
+          let plain = "Error de desencriptado";
+          try {
+            plain = decryptPassword(p.encrypted_password);
+          } catch(e) {}
+          return { ...p, decrypted: plain };
+        });
+        setVaultPasswords(decrypted);
+      }
+    } catch (error) {
+      console.error(error);
+      setVaultError("Error al cargar la bóveda.");
+    } finally {
+      setLoadingVault(false);
+    }
+  };
+
+  const togglePasswordVisibility = (id) => {
+    setVisiblePasswords(prev => ({
+      ...prev,
+      [id]: !prev[id]
+    }));
   };
 
   return (
@@ -238,7 +313,7 @@ export default function AdminDashboard() {
       {/* Modal / Slide-over para Detalle de Ticket */}
       {selectedTicket && typeof document !== 'undefined' && createPortal(
         <div className="fixed inset-0 z-[9999] overflow-hidden flex justify-end" aria-labelledby="slide-over-title" role="dialog" aria-modal="true">
-          <div className="absolute inset-0 bg-[#0a1128]/80 backdrop-blur-md transition-opacity" onClick={() => setSelectedTicket(null)}></div>
+          <div className="absolute inset-0 bg-[#0a1128]/80 backdrop-blur-md transition-opacity" onClick={() => { setSelectedTicket(null); setVaultPasswords(null); setVaultError(null); }}></div>
           
           <div className="relative w-full max-w-2xl h-full bg-[#0a1128] border-l border-blue-500/20 shadow-[0_0_50px_rgba(37,99,235,0.15)] flex flex-col transform transition-transform animate-in slide-in-from-right duration-300">
             {/* Glow decorativo de borde superior */}
@@ -259,7 +334,7 @@ export default function AdminDashboard() {
                 <p className="text-base font-medium text-slate-400">{selectedTicket.title}</p>
               </div>
               <button 
-                onClick={() => setSelectedTicket(null)}
+                onClick={() => { setSelectedTicket(null); setVaultPasswords(null); setVaultError(null); }}
                 className="bg-[#0f172a]/5 rounded-xl p-2.5 hover:bg-[#0f172a]/10 transition-colors text-slate-400 border border-white/10"
               >
                 <X className="w-5 h-5" />
@@ -285,11 +360,19 @@ export default function AdminDashboard() {
                     <p className="text-sm text-slate-200 font-semibold">{selectedTicket.category}</p>
                   </div>
                 </div>
-                <div className="flex items-start gap-4 p-4 bg-[#0f172a]/5 rounded-2xl border border-white/5">
+                <div className="flex items-start gap-4 p-4 bg-[#0f172a]/5 rounded-2xl border border-white/5 relative group">
                   <div className="p-2 bg-indigo-500/10 rounded-lg text-indigo-400"><User className="w-5 h-5" /></div>
-                  <div>
+                  <div className="flex-1">
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Emisor</p>
-                    <p className="text-sm text-slate-200 font-semibold">{selectedTicket.user}</p>
+                    <p className="text-sm text-slate-200 font-semibold truncate">{selectedTicket.user}</p>
+                    <button
+                      onClick={handleOpenVault}
+                      disabled={loadingVault}
+                      className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-1.5 bg-gradient-to-r from-blue-600 to-cyan-600 text-white text-xs font-bold rounded-lg hover:from-blue-500 hover:to-cyan-500 shadow-md transition-all"
+                    >
+                      <Key className="w-3.5 h-3.5" />
+                      {loadingVault ? 'Verificando...' : 'Ver Bóveda'}
+                    </button>
                   </div>
                 </div>
                 <div className="flex items-start gap-4 p-4 bg-[#0f172a]/5 rounded-2xl border border-white/5">
@@ -310,6 +393,61 @@ export default function AdminDashboard() {
                   {selectedTicket.description}
                 </div>
               </div>
+
+              {/* Bóveda (Renderizado Condicional) */}
+              {(vaultPasswords || vaultError) && (
+                <div className="mb-8 p-6 rounded-2xl border border-blue-500/30 bg-blue-900/10 animate-in fade-in zoom-in duration-300">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-bold text-blue-400 uppercase tracking-[0.1em] flex items-center gap-2">
+                      <Key className="w-5 h-5" /> Bóveda de: {selectedTicket.user}
+                    </h3>
+                    <button 
+                      onClick={() => { setVaultPasswords(null); setVaultError(null); }}
+                      className="p-1 hover:bg-blue-900/40 rounded-lg text-slate-400"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {vaultError && (
+                    <div className="p-4 bg-red-900/20 border border-red-500/20 text-red-400 text-sm rounded-xl">
+                      {vaultError}
+                    </div>
+                  )}
+
+                  {vaultPasswords && vaultPasswords.length === 0 && (
+                    <div className="p-4 bg-[#0a1128] border border-white/5 text-slate-400 text-sm rounded-xl text-center">
+                      El cliente tiene habilitada la Bóveda pero no ha guardado ninguna contraseña aún.
+                    </div>
+                  )}
+
+                  {vaultPasswords && vaultPasswords.length > 0 && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {vaultPasswords.map(p => (
+                        <div key={p.id} className="p-4 bg-[#0a1128] border border-blue-500/20 rounded-xl relative group">
+                          <h4 className="text-sm font-bold text-white mb-2">{p.service_name}</h4>
+                          {p.email && (
+                            <div className="text-xs text-slate-400 mb-1 flex items-center gap-2">
+                              <User className="w-3.5 h-3.5 text-blue-400" /> {p.email}
+                            </div>
+                          )}
+                          <div className="flex gap-2 items-center mt-3">
+                            <div className="flex-1 px-3 py-2 bg-[#0f172a] rounded-lg border border-slate-700 text-sm font-mono text-cyan-400">
+                              {visiblePasswords[p.id] ? p.decrypted : '••••••••••••'}
+                            </div>
+                            <button
+                              onClick={() => togglePasswordVisibility(p.id)}
+                              className="p-2 text-slate-400 hover:text-white bg-[#0f172a] border border-slate-700 rounded-lg"
+                            >
+                              {visiblePasswords[p.id] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Historial / Chat */}
               <div>
