@@ -1,15 +1,18 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import TicketForm from './TicketForm';
 import ClientPasswords from './ClientPasswords';
-import { Shield, Cctv, LogOut, ArrowLeft, Ticket, Lock } from 'lucide-react';
+import { LogOut, Ticket, Lock, UserCircle, ChevronDown } from 'lucide-react';
 
 function AppClient() {
   const navigate = useNavigate();
   const [clientUser, setClientUser] = useState(null);
   const [clientName, setClientName] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
-  const [activeTab, setActiveTab] = useState('tickets');
+  const [activeView, setActiveView] = useState('tickets');
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  
+  const menuRef = useRef(null);
 
   useEffect(() => {
     const role = localStorage.getItem('user_role');
@@ -19,7 +22,6 @@ function AppClient() {
     if (role === 'admin' && adminUser) {
       setIsAdmin(true);
       setClientName('Administrador');
-      // Admin might want to test the UI, but doesn't have an ID for passwords
     } else if (role === 'client' && clientUserStr) {
       try {
         const client = JSON.parse(clientUserStr);
@@ -30,6 +32,17 @@ function AppClient() {
       navigate('/');
     }
   }, [navigate]);
+
+  // Cerrar menú al hacer clic fuera
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setIsProfileMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const handleLogout = () => {
     if (isAdmin) {
@@ -53,66 +66,91 @@ function AppClient() {
       </div>
       
       <div className="relative z-10 max-w-4xl mx-auto">
-        <header className="mb-8 text-center sm:text-left flex flex-col sm:flex-row items-center justify-between gap-5">
-          <div className="flex flex-col sm:flex-row items-center gap-5">
-            <div className="relative w-20 h-20 bg-gradient-to-br from-blue-900 to-slate-900 rounded-2xl flex items-center justify-center border border-blue-500/30 shadow-[0_0_30px_rgba(59,130,246,0.3)] overflow-hidden p-0.5 shrink-0">
+        <header className="mb-10 flex flex-col sm:flex-row items-center justify-between gap-5">
+          <div 
+            className="flex items-center gap-4 cursor-pointer hover:opacity-80 transition-opacity" 
+            onClick={() => setActiveView('tickets')}
+          >
+            <div className="relative w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-blue-900 to-slate-900 rounded-2xl flex items-center justify-center border border-blue-500/30 shadow-[0_0_30px_rgba(59,130,246,0.3)] overflow-hidden p-0.5 shrink-0">
               <img src="/logo.jpg" alt="Vigilancia Digital" className="w-full h-full object-cover rounded-[14px]" />
             </div>
-            <div>
-              <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white to-blue-200 tracking-tight">
-                Vigilancia Digital S.A.
+            <div className="text-center sm:text-left">
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white to-blue-200 tracking-tight">
+                Vigilancia Digital
               </h1>
-              <div className="flex items-center gap-2 mt-1 justify-center sm:justify-start">
-                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
-                <p className="text-blue-300 text-sm font-medium tracking-[0.2em] uppercase">
-                  Plataforma de Operaciones IT
+              <div className="flex items-center gap-2 mt-0.5 justify-center sm:justify-start">
+                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
+                <p className="text-blue-300 text-xs sm:text-sm font-medium tracking-[0.15em] sm:tracking-[0.2em] uppercase">
+                  Plataforma IT
                 </p>
               </div>
             </div>
           </div>
           
-          <div className="flex flex-col items-center sm:items-end gap-2">
-            <span className="text-slate-400 text-sm font-medium">Hola, <span className="text-cyan-400">{clientName}</span></span>
+          {/* Menú de Perfil */}
+          <div className="relative" ref={menuRef}>
             <button 
-              onClick={handleLogout}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-800/50 hover:bg-slate-700/80 border border-slate-700 rounded-lg text-sm font-medium text-white transition-colors shadow-sm"
+              onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+              className="flex items-center gap-3 p-2 pr-4 bg-[#0f172a]/80 hover:bg-[#0f172a] border border-slate-700/50 rounded-full transition-all shadow-lg backdrop-blur-md"
             >
-              {isAdmin ? <ArrowLeft className="w-4 h-4" /> : <LogOut className="w-4 h-4" />}
-              {isAdmin ? 'Volver al Admin' : 'Cerrar Sesión'}
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-600 to-blue-600 flex items-center justify-center border border-cyan-400/30 shadow-inner">
+                <UserCircle className="w-6 h-6 text-white opacity-80" />
+              </div>
+              <div className="text-left hidden sm:block">
+                <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Conectado como</div>
+                <div className="text-sm font-bold text-white truncate max-w-[120px]">{clientName}</div>
+              </div>
+              <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 ${isProfileMenuOpen ? 'rotate-180' : ''}`} />
             </button>
+
+            {/* Dropdown Menu */}
+            {isProfileMenuOpen && (
+              <div className="absolute right-0 mt-2 w-56 bg-[#0f172a] border border-slate-700 rounded-2xl shadow-2xl overflow-hidden z-50 animate-in slide-in-from-top-2">
+                <div className="p-3 border-b border-slate-800 sm:hidden">
+                  <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Conectado como</div>
+                  <div className="text-sm font-bold text-white truncate">{clientName}</div>
+                </div>
+                
+                <div className="p-2">
+                  <button 
+                    onClick={() => {
+                      setActiveView('tickets');
+                      setIsProfileMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${activeView === 'tickets' ? 'bg-cyan-900/30 text-cyan-400' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}
+                  >
+                    <Ticket className="w-4 h-4" /> Nuevo Ticket
+                  </button>
+                  
+                  {hasPasswords && (
+                    <button 
+                      onClick={() => {
+                        setActiveView('passwords');
+                        setIsProfileMenuOpen(false);
+                      }}
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${activeView === 'passwords' ? 'bg-blue-900/30 text-blue-400' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}
+                    >
+                      <Lock className="w-4 h-4" /> Mis Contraseñas
+                    </button>
+                  )}
+                </div>
+
+                <div className="p-2 border-t border-slate-800 bg-[#0a1128]/50">
+                  <button 
+                    onClick={handleLogout}
+                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-bold text-red-400 hover:bg-red-900/20 transition-colors"
+                  >
+                    {isAdmin ? 'Volver al Admin' : 'Cerrar Sesión'}
+                    <LogOut className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </header>
 
-        {/* Navegación por pestañas (solo si tiene acceso a contraseñas) */}
-        {hasPasswords && (
-          <div className="flex justify-center sm:justify-start gap-2 mb-8 bg-[#0f172a]/80 p-1.5 rounded-xl border border-slate-700/50 w-fit mx-auto sm:mx-0 backdrop-blur-md">
-            <button
-              onClick={() => setActiveTab('tickets')}
-              className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${
-                activeTab === 'tickets' 
-                  ? 'bg-cyan-600 text-white shadow-md' 
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
-              }`}
-            >
-              <Ticket className="w-4 h-4" />
-              Soporte / Tickets
-            </button>
-            <button
-              onClick={() => setActiveTab('passwords')}
-              className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${
-                activeTab === 'passwords' 
-                  ? 'bg-blue-600 text-white shadow-md' 
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
-              }`}
-            >
-              <Lock className="w-4 h-4" />
-              Mis Contraseñas
-            </button>
-          </div>
-        )}
-
         <main>
-          {activeTab === 'tickets' ? (
+          {activeView === 'tickets' ? (
             <TicketForm />
           ) : (
             <ClientPasswords user={clientUser} />

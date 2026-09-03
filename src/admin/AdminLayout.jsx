@@ -17,11 +17,40 @@ export default function AdminLayout() {
     }
   }, [navigate, adminUser]);
 
-  // Escuchar eventos globales de SignalR emitidos desde el Dashboard
+  // Request Notification Permission
   useEffect(() => {
-    const handleNewTicket = () => setNotifications(prev => prev + 1);
-    window.addEventListener('signalr-new-ticket', handleNewTicket);
-    return () => window.removeEventListener('signalr-new-ticket', handleNewTicket);
+    if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
+      Notification.requestPermission();
+    }
+  }, []);
+
+  // Escuchar eventos de nuevos tickets vía Supabase Realtime
+  useEffect(() => {
+    const channel = supabase.channel('realtime:tickets')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'tickets' },
+        (payload) => {
+          setNotifications(prev => prev + 1);
+          
+          // Trigger browser notification
+          if ("Notification" in window && Notification.permission === "granted") {
+            const title = payload.new.client_name 
+              ? `Nuevo Ticket de ${payload.new.client_name}` 
+              : 'Nuevo Ticket Recibido';
+              
+            new Notification(title, {
+              body: `Asunto: ${payload.new.subject}\nTocado para revisar el panel.`,
+              icon: '/logo.jpg'
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   // Buscar notificaciones de reseteo de contraseñas
