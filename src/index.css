@@ -8,3 +8,12 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+/* Ensure inputs in dark mode always default to crisp, visible text */
+input, select, textarea {
+  color: #f8fafc;
+}
+
+input::placeholder, textarea::placeholder {
+  color: #64748b;
+}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Monitor, Plus, Edit2, Trash2, Server, X, QrCode, Download, Printer } from 'lucide-react';
+import { Monitor, Plus, Edit2, Trash2, Server, X, QrCode, Download, Printer, MapPin, Check } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { QRCodeSVG } from 'qrcode.react';
 
@@ -10,6 +10,12 @@ export default function AdminEquipos() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [showQR, setShowQR] = useState(null);
+
+  // Creación rápida de zona directamente desde el modal de equipos
+  const [isQuickZoneOpen, setIsQuickZoneOpen] = useState(false);
+  const [newZoneName, setNewZoneName] = useState('');
+  const [newZoneAddress, setNewZoneAddress] = useState('');
+  const [isSavingZone, setIsSavingZone] = useState(false);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -31,7 +37,7 @@ export default function AdminEquipos() {
   };
 
   const fetchZones = async () => {
-    const { data, error } = await supabase.from('zones').select('id, name');
+    const { data, error } = await supabase.from('zones').select('id, name').order('name', { ascending: true });
     if (!error) setZones(data);
   };
 
@@ -43,6 +49,9 @@ export default function AdminEquipos() {
     setFormData({ name: '', type: 'Computadora', description: '', ip: '', zone_id: '', status: 'Activo' });
     setEditingId(null);
     setIsModalOpen(false);
+    setIsQuickZoneOpen(false);
+    setNewZoneName('');
+    setNewZoneAddress('');
   };
 
   const handleEditClick = (equipo) => {
@@ -80,6 +89,40 @@ export default function AdminEquipos() {
 
     fetchEquipos();
     resetForm();
+  };
+
+  // Crear zona al vuelo sin salirse ni perder los datos escritos en el formulario del equipo
+  const handleQuickCreateZone = async (e) => {
+    e.preventDefault();
+    const trimmedName = newZoneName.trim();
+    if (!trimmedName) return;
+
+    setIsSavingZone(true);
+    try {
+      const { data, error } = await supabase
+        .from('zones')
+        .insert([{ 
+          name: trimmedName, 
+          address: newZoneAddress.trim() || 'Sin dirección', 
+          status: 'Activa' 
+        }])
+        .select();
+
+      if (error) {
+        alert("Error al crear zona: " + error.message);
+      } else if (data && data[0]) {
+        const createdZone = data[0];
+        setZones(prev => [...prev, createdZone].sort((a, b) => a.name.localeCompare(b.name)));
+        setFormData(prev => ({ ...prev, zone_id: createdZone.id }));
+        setIsQuickZoneOpen(false);
+        setNewZoneName('');
+        setNewZoneAddress('');
+      }
+    } catch (err) {
+      alert("Error: " + err.message);
+    } finally {
+      setIsSavingZone(false);
+    }
   };
 
   const handleDeleteEquipo = async (id) => {
@@ -155,7 +198,7 @@ export default function AdminEquipos() {
                 <QrCode className="w-5 h-5 text-cyan-400" />
                 Código QR
               </h3>
-              <button onClick={() => setShowQR(null)} className="text-slate-400 hover:text-white"><X className="w-5 h-5" /></button>
+              <button onClick={() => setShowQR(null)} className="text-slate-400 hover:text-white transition-colors"><X className="w-5 h-5" /></button>
             </div>
             <div className="p-8 flex flex-col items-center">
               <div id="qr-print-area" className="bg-white p-4 rounded-xl">
@@ -180,21 +223,21 @@ export default function AdminEquipos() {
         document.body
       )}
 
-      {/* Modal de Formulario */}
+      {/* Modal de Formulario de Registro/Edición de Equipo */}
       {isModalOpen && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
           <div className="bg-[#0f172a] rounded-2xl w-full max-w-xl overflow-hidden shadow-2xl border border-cyan-900/50">
             <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-[#0a1128]">
               <h3 className="text-lg font-bold text-white flex items-center gap-2">
                 {editingId ? <Edit2 className="w-5 h-5 text-cyan-400" /> : <Monitor className="w-5 h-5 text-cyan-400" />}
                 {editingId ? 'Editar Equipo' : 'Registrar Equipo'}
               </h3>
-              <button onClick={resetForm} className="text-slate-400 hover:text-white"><X className="w-5 h-5" /></button>
+              <button onClick={resetForm} className="text-slate-400 hover:text-white transition-colors"><X className="w-5 h-5" /></button>
             </div>
             <form onSubmit={handleSaveEquipo} className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-400 mb-1">Identificador / Nombre *</label>
-                <input required name="name" value={formData.name} onChange={handleChange} type="text" placeholder="Ej. PC-CAJA-04" className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg outline-none text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
+                <input required name="name" value={formData.name} onChange={handleChange} type="text" placeholder="Ej. PC-CAJA-04" className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg outline-none text-white placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-400 mb-1">Tipo de Equipo *</label>
@@ -209,19 +252,48 @@ export default function AdminEquipos() {
               </div>
               <div className="md:col-span-2">
                 <label className="block text-xs font-bold text-slate-400 mb-1">Descripción / Marca / Modelo</label>
-                <input name="description" value={formData.description} onChange={handleChange} type="text" placeholder="Ej. Dell Optiplex 3080, i5, 8GB RAM" className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg outline-none text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
+                <input name="description" value={formData.description} onChange={handleChange} type="text" placeholder="Ej. Dell Optiplex 3080, i5, 8GB RAM" className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg outline-none text-white placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-400 mb-1">Dirección IP (Opcional)</label>
-                <input name="ip" value={formData.ip} onChange={handleChange} type="text" placeholder="192.168.x.x" className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg outline-none text-white focus:border-cyan-500 font-mono text-sm" />
+                <input name="ip" value={formData.ip} onChange={handleChange} type="text" placeholder="192.168.x.x" className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg outline-none text-white placeholder-slate-500 focus:border-cyan-500 font-mono text-sm" />
               </div>
+              
+              {/* Sucursal / Zona con creación rápida integrada */}
               <div>
-                <label className="block text-xs font-bold text-slate-400 mb-1">Sucursal / Zona *</label>
-                <select required name="zone_id" value={formData.zone_id} onChange={handleChange} className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg outline-none text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500">
-                  <option value="">Selecciona una zona...</option>
-                  {zones.map(z => <option key={z.id} value={z.id}>{z.name}</option>)}
-                </select>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="block text-xs font-bold text-slate-400">Sucursal / Zona *</label>
+                  <button
+                    type="button"
+                    onClick={() => setIsQuickZoneOpen(true)}
+                    className="text-xs text-cyan-400 hover:text-cyan-300 font-bold flex items-center gap-1 transition-colors hover:underline"
+                    title="Crear nueva zona sin salir de este formulario"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Nueva Zona
+                  </button>
+                </div>
+                <div className="flex gap-2">
+                  <select 
+                    required 
+                    name="zone_id" 
+                    value={formData.zone_id} 
+                    onChange={handleChange} 
+                    className="flex-1 px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg outline-none text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-sm"
+                  >
+                    <option value="">Selecciona una zona...</option>
+                    {zones.map(z => <option key={z.id} value={z.id}>{z.name}</option>)}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setIsQuickZoneOpen(true)}
+                    title="Crear nueva zona rápidamente"
+                    className="px-2.5 py-2 bg-slate-800 hover:bg-slate-700 text-cyan-400 hover:text-white rounded-lg border border-slate-700 flex items-center justify-center transition-colors shrink-0"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
+
               <div className="md:col-span-2">
                 <label className="block text-xs font-bold text-slate-400 mb-1">Estado</label>
                 <select required name="status" value={formData.status} onChange={handleChange} className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg outline-none text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500">
@@ -232,9 +304,77 @@ export default function AdminEquipos() {
               </div>
               
               <div className="md:col-span-2 pt-4 flex gap-3 justify-end border-t border-slate-800 mt-2">
-                <button type="button" onClick={resetForm} className="px-5 py-2.5 bg-slate-800 text-white font-bold rounded-lg hover:bg-slate-700 transition-colors">Cancelar</button>
+                <button type="button" onClick={resetForm} className="px-5 py-2.5 bg-slate-800 text-slate-300 font-bold rounded-lg hover:bg-slate-700 hover:text-white transition-colors border border-slate-700">Cancelar</button>
                 <button type="submit" className="px-6 py-2.5 bg-cyan-600 text-white font-bold rounded-lg hover:bg-cyan-500 transition-colors shadow-[0_0_15px_rgba(6,182,212,0.4)]">
                   {editingId ? 'Actualizar' : 'Guardar'} Equipo
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Sub-modal de Creación Rápida de Zona (sobre el modal de equipos) */}
+      {isQuickZoneOpen && createPortal(
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-[#0f172a] rounded-2xl w-full max-w-md overflow-hidden shadow-2xl border border-cyan-800/60 animate-in zoom-in-95 duration-200">
+            <div className="px-6 py-4 border-b border-slate-800 flex justify-between items-center bg-[#0a1128]">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <MapPin className="w-5 h-5 text-cyan-400" />
+                Nueva Zona / Sucursal
+              </h3>
+              <button 
+                type="button"
+                onClick={() => { setIsQuickZoneOpen(false); setNewZoneName(''); setNewZoneAddress(''); }} 
+                className="text-slate-400 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleQuickCreateZone} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-slate-300 mb-1">Nombre de la Sucursal *</label>
+                <input 
+                  required 
+                  autoFocus
+                  type="text" 
+                  value={newZoneName}
+                  onChange={(e) => setNewZoneName(e.target.value)}
+                  placeholder="Ej. Sucursal Sur" 
+                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg outline-none text-white placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" 
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-300 mb-1">
+                  Dirección Física <span className="text-slate-400 font-normal">(Opcional)</span>
+                </label>
+                <input 
+                  type="text" 
+                  value={newZoneAddress}
+                  onChange={(e) => setNewZoneAddress(e.target.value)}
+                  placeholder="Av. Siempre Viva 123" 
+                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg outline-none text-white placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" 
+                />
+              </div>
+              <div className="pt-4 flex gap-3">
+                <button 
+                  type="button" 
+                  onClick={() => { setIsQuickZoneOpen(false); setNewZoneName(''); setNewZoneAddress(''); }} 
+                  className="flex-1 px-4 py-2 bg-slate-800 text-slate-300 font-bold rounded-lg hover:bg-slate-700 hover:text-white transition-colors border border-slate-700"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="submit" 
+                  disabled={isSavingZone}
+                  className="flex-1 px-4 py-2 bg-cyan-600 text-white font-bold rounded-lg hover:bg-cyan-500 transition-colors shadow-[0_0_15px_rgba(6,182,212,0.4)] disabled:opacity-50 flex items-center justify-center gap-1.5"
+                >
+                  {isSavingZone ? 'Guardando...' : (
+                    <>
+                      <Check className="w-4 h-4" /> Guardar y Seleccionar
+                    </>
+                  )}
                 </button>
               </div>
             </form>
@@ -267,7 +407,7 @@ export default function AdminEquipos() {
                       </div>
                       <div>
                         <div className="font-bold text-white text-sm">{equipo.name}</div>
-                        <div className="text-xs text-slate-500 mt-0.5">{equipo.type}</div>
+                        <div className="text-xs text-slate-400 mt-0.5">{equipo.type}</div>
                       </div>
                     </div>
                   </td>
@@ -336,7 +476,7 @@ export default function AdminEquipos() {
                   <span className="text-xs text-slate-400 font-mono">{equipo.ip_address || 'N/A'}</span>
                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{equipo.zones?.name || 'Sin asignar'}</span>
                 </div>
-                <span className={`px-2 py-1 text-[10px] font-bold uppercase tracking-wide rounded border ${
+                <span className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide rounded border ${
                   equipo.status === 'Activo' ? 'bg-emerald-900/30 text-emerald-400 border-emerald-800' : 
                   equipo.status === 'Mantenimiento' ? 'bg-amber-900/30 text-amber-400 border-amber-800' : 'bg-red-900/30 text-red-400 border-red-800'
                 }`}>
