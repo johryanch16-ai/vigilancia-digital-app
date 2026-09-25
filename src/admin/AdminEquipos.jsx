@@ -59,7 +59,7 @@ export default function AdminEquipos() {
       name: equipo.name,
       type: equipo.type || 'Computadora',
       description: equipo.description || '',
-      ip: equipo.ip_address || '',
+      ip: equipo.ip || equipo.ip_address || '',
       zone_id: equipo.zone_id || '',
       status: equipo.status || 'Activo'
     });
@@ -74,7 +74,7 @@ export default function AdminEquipos() {
       name: formData.name,
       type: formData.type,
       description: formData.description,
-      ip_address: formData.ip,
+      ip: formData.ip,
       zone_id: formData.zone_id,
       status: formData.status
     };
@@ -413,7 +413,7 @@ export default function AdminEquipos() {
                   </td>
                   <td className="px-6 py-4">
                     <span className="font-mono text-sm font-medium text-cyan-400 bg-cyan-900/30 px-2 py-1 rounded-md border border-cyan-800">
-                      {equipo.ip_address || 'N/A'}
+                      {equipo.ip || equipo.ip_address || 'N/A'}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-sm text-slate-300">
@@ -473,7 +473,7 @@ export default function AdminEquipos() {
               
               <div className="flex justify-between items-center mt-1 pt-2 border-t border-slate-800">
                 <div className="flex flex-col gap-1">
-                  <span className="text-xs text-slate-400 font-mono">{equipo.ip_address || 'N/A'}</span>
+                  <span className="text-xs text-slate-400 font-mono">{equipo.ip || equipo.ip_address || 'N/A'}</span>
                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{equipo.zones?.name || 'Sin asignar'}</span>
                 </div>
                 <span className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide rounded border ${
