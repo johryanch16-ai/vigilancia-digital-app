@@ -234,10 +234,10 @@ export default function AdminEquipos() {
               </h3>
               <button onClick={resetForm} className="text-slate-400 hover:text-white transition-colors"><X className="w-5 h-5" /></button>
             </div>
-            <form onSubmit={handleSaveEquipo} className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <form onSubmit={handleSaveEquipo} autoComplete="off" data-lpignore="true" className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-400 mb-1">Identificador / Nombre *</label>
-                <input required name="name" value={formData.name} onChange={handleChange} type="text" placeholder="Ej. PC-CAJA-04" className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg outline-none text-white placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
+                <input required autoComplete="off" data-lpignore="true" name="name" value={formData.name} onChange={handleChange} type="text" placeholder="Ej. PC-CAJA-04" className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg outline-none text-white placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-400 mb-1">Tipo de Equipo *</label>
@@ -252,11 +252,11 @@ export default function AdminEquipos() {
               </div>
               <div className="md:col-span-2">
                 <label className="block text-xs font-bold text-slate-400 mb-1">Descripción / Marca / Modelo</label>
-                <input name="description" value={formData.description} onChange={handleChange} type="text" placeholder="Ej. Dell Optiplex 3080, i5, 8GB RAM" className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg outline-none text-white placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
+                <input autoComplete="off" data-lpignore="true" name="description" value={formData.description} onChange={handleChange} type="text" placeholder="Ej. Dell Optiplex 3080, i5, 8GB RAM" className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg outline-none text-white placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-400 mb-1">Dirección IP (Opcional)</label>
-                <input name="ip" value={formData.ip} onChange={handleChange} type="text" placeholder="192.168.x.x" className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg outline-none text-white placeholder-slate-500 focus:border-cyan-500 font-mono text-sm" />
+                <input autoComplete="off" data-lpignore="true" name="ip" value={formData.ip} onChange={handleChange} type="text" placeholder="192.168.x.x" className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg outline-none text-white placeholder-slate-500 focus:border-cyan-500 font-mono text-sm" />
               </div>
               
               {/* Sucursal / Zona con creación rápida integrada */}
@@ -332,13 +332,15 @@ export default function AdminEquipos() {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <form onSubmit={handleQuickCreateZone} className="p-6 space-y-4">
+            <form onSubmit={handleQuickCreateZone} autoComplete="off" data-lpignore="true" className="p-6 space-y-4">
               <div>
                 <label className="block text-sm font-bold text-slate-300 mb-1">Nombre de la Sucursal *</label>
                 <input 
                   required 
                   autoFocus
                   type="text" 
+                  autoComplete="off"
+                  data-lpignore="true"
                   value={newZoneName}
                   onChange={(e) => setNewZoneName(e.target.value)}
                   placeholder="Ej. Sucursal Sur" 
@@ -351,6 +353,8 @@ export default function AdminEquipos() {
                 </label>
                 <input 
                   type="text" 
+                  autoComplete="off"
+                  data-lpignore="true"
                   value={newZoneAddress}
                   onChange={(e) => setNewZoneAddress(e.target.value)}
                   placeholder="Av. Siempre Viva 123" 

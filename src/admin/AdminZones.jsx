@@ -72,13 +72,14 @@ export default function AdminZones() {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <form onSubmit={handleAddZone} className="p-6 space-y-4">
+            <form onSubmit={handleAddZone} autoComplete="off" className="p-6 space-y-4">
               <div>
                 <label className="block text-sm font-bold text-slate-300 mb-1">Nombre de la Sucursal</label>
                 <input 
                   required 
                   name="name" 
                   type="text" 
+                  autoComplete="off"
                   placeholder="Ej. Sucursal Sur" 
                   className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg outline-none text-white placeholder-slate-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500" 
                 />
@@ -90,6 +91,7 @@ export default function AdminZones() {
                 <input 
                   name="address" 
                   type="text" 
+                  autoComplete="off"
                   placeholder="Av. Siempre Viva 123" 
                   className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg outline-none text-white placeholder-slate-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500" 
                 />
