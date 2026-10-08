@@ -28,13 +28,46 @@ export function saveLocalTicket(ticket) {
 }
 
 export function updateLocalTicketStatus(id, newStatus) {
+  if (typeof window === 'undefined') return null;
+  try {
+    const existing = getLocalTickets();
+    let updatedTicket = null;
+    const updated = existing.map(t => {
+      if (t.id === id) {
+        updatedTicket = { ...t, status: newStatus, resolved_at: newStatus === 'Resuelto' ? new Date().toISOString() : t.resolved_at };
+        return updatedTicket;
+      }
+      return t;
+    });
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    
+    if (channel && updatedTicket) {
+      channel.postMessage({ type: 'STATUS_CHANGED', id, status: newStatus, ticket: updatedTicket });
+    }
+
+    if (typeof window !== 'undefined' && updatedTicket) {
+      window.dispatchEvent(new CustomEvent('vigilancia:status_changed', { 
+        detail: { id, status: newStatus, ticket: updatedTicket } 
+      }));
+    }
+
+    // Actualizar también en Supabase si está disponible
+    supabase.from('tickets').update({ status: newStatus }).eq('id', id).then(() => {}).catch(() => {});
+
+    return updatedTicket;
+  } catch (e) {
+    return null;
+  }
+}
+
+export function deleteLocalTicket(id) {
   if (typeof window === 'undefined') return;
   try {
     const existing = getLocalTickets();
-    const updated = existing.map(t => t.id === id ? { ...t, status: newStatus } : t);
+    const updated = existing.filter(t => t.id !== id);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
     if (channel) {
-      channel.postMessage({ type: 'STATUS_CHANGED', id, status: newStatus });
+      channel.postMessage({ type: 'TICKET_DELETED', id });
     }
   } catch (e) {}
 }
@@ -87,20 +120,16 @@ export async function createTicket({ title, description, priority, branch, categ
     created_at: nowIso
   };
 
-  // 1. Guardar en almacenamiento local inmediato
   saveLocalTicket(ticketObj);
 
-  // 2. Notificar vía canal entre pestañas locales
   if (channel) {
     channel.postMessage({ type: 'NEW_TICKET', ticket: ticketObj });
   }
 
-  // 3. Disparar evento personalizado en la ventana actual
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('vigilancia:new_ticket', { detail: ticketObj }));
   }
 
-  // 4. Intentar guardar en Supabase (si el backend está activo)
   try {
     const { data, error } = await supabase
       .from('tickets')
@@ -116,9 +145,7 @@ export async function createTicket({ title, description, priority, branch, categ
     if (!error && data && data[0]) {
       ticketObj.db_id = data[0].id;
     }
-  } catch (err) {
-    console.warn('Supabase offline o en pausa. Ticket guardado localmente en tiempo real:', err);
-  }
+  } catch (err) {}
 
   return ticketObj;
 }
@@ -133,22 +160,30 @@ export function subscribeToTickets(onNewTicket, onStatusChange) {
         onNewTicket(event.data.ticket);
       }
       if (event.data?.type === 'STATUS_CHANGED' && onStatusChange) {
-        onStatusChange(event.data.id, event.data.status);
+        onStatusChange(event.data.id, event.data.status, event.data.ticket);
       }
     };
     channel.addEventListener('message', bcHandler);
     handlers.push(() => channel.removeEventListener('message', bcHandler));
   }
 
-  // CustomEvent
+  // CustomEvents
   if (typeof window !== 'undefined') {
-    const ceHandler = (event) => {
+    const ceNewHandler = (event) => {
       if (event.detail && onNewTicket) {
         onNewTicket(event.detail);
       }
     };
-    window.addEventListener('vigilancia:new_ticket', ceHandler);
-    handlers.push(() => window.removeEventListener('vigilancia:new_ticket', ceHandler));
+    window.addEventListener('vigilancia:new_ticket', ceNewHandler);
+    handlers.push(() => window.removeEventListener('vigilancia:new_ticket', ceNewHandler));
+
+    const ceStatusHandler = (event) => {
+      if (event.detail && onStatusChange) {
+        onStatusChange(event.detail.id, event.detail.status, event.detail.ticket);
+      }
+    };
+    window.addEventListener('vigilancia:status_changed', ceStatusHandler);
+    handlers.push(() => window.removeEventListener('vigilancia:status_changed', ceStatusHandler));
 
     // Storage Event (otra pestaña)
     const storageHandler = (e) => {
@@ -168,6 +203,11 @@ export function subscribeToTickets(onNewTicket, onStatusChange) {
   // Supabase Realtime (si está en línea)
   try {
     const subChannel = supabase.channel('realtime:tickets_shared')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tickets' }, (payload) => {
+        if (payload?.new && onStatusChange) {
+          onStatusChange(payload.new.id, payload.new.status, payload.new);
+        }
+      })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tickets' }, (payload) => {
         if (payload?.new && onNewTicket) {
           const remoteTicket = {

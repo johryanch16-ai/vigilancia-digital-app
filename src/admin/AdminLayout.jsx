@@ -66,16 +66,13 @@ export default function AdminLayout() {
 
   let navigation = [
     { name: 'Dashboard', to: '/admin/tickets', icon: LayoutDashboard },
+    { name: 'Bitácora y Concluidos', to: '/admin/bitacora', icon: Archive },
     { name: 'Usuarios Sucursales', to: '/admin/users', icon: Users },
     { name: 'Equipos', to: '/admin/equipos', icon: Monitor },
     { name: 'Zonas y Sucursales', to: '/admin/zones', icon: MapPin },
     { name: 'Categorías', to: '/admin/categories', icon: Tags },
     { name: 'Configuración', to: '/admin/settings', icon: Settings },
   ];
-
-  if (adminUser === 'Johryan') {
-    navigation.push({ name: 'Bitácora Privada', to: '/admin/bitacora', icon: Archive, isDanger: true });
-  }
 
   return (
     <div className="min-h-screen bg-[#0a1128] flex flex-col md:flex-row font-sans">

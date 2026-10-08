@@ -1,4 +1,6 @@
-﻿// Sonido de alerta para nuevas incidencias usando Web Audio API
+﻿// Sonidos de alerta usando Web Audio API (Sin depender de archivos externos)
+
+// 1. Alerta técnica para administradores al recibir nueva incidencia
 export function playNotificationSound() {
   try {
     const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -7,7 +9,6 @@ export function playNotificationSound() {
 
     const now = ctx.currentTime;
 
-    // Primer tono agudo
     const osc1 = ctx.createOscillator();
     const gain1 = ctx.createGain();
     osc1.type = 'sine';
@@ -21,7 +22,6 @@ export function playNotificationSound() {
     osc1.start(now);
     osc1.stop(now + 0.3);
 
-    // Segundo tono confirmatorio
     const osc2 = ctx.createOscillator();
     const gain2 = ctx.createGain();
     osc2.type = 'triangle';
@@ -34,7 +34,34 @@ export function playNotificationSound() {
     gain2.connect(ctx.destination);
     osc2.start(now + 0.15);
     osc2.stop(now + 0.5);
-  } catch (e) {
-    // Audio bloqueado por directiva de autoplay si no ha habido interacción previa
-  }
+  } catch (e) {}
+}
+
+// 2. Chime de éxito para la sucursal cuando su incidencia es resuelta por soporte
+export function playSuccessChime() {
+  try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+    const ctx = new AudioContext();
+
+    const now = ctx.currentTime;
+
+    // Tres notas armónicas ascendentes (C5 -> E5 -> G5)
+    [
+      { f: 523.25, t: 0 },
+      { f: 659.25, t: 0.12 },
+      { f: 783.99, t: 0.24 }
+    ].forEach(note => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(note.f, now + note.t);
+      gain.gain.setValueAtTime(0.2, now + note.t);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + note.t + 0.4);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now + note.t);
+      osc.stop(now + note.t + 0.4);
+    });
+  } catch (e) {}
 }

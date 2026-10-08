@@ -1,180 +1,286 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Filter, MoreVertical, CheckCircle2, Clock, AlertCircle, X, MapPin, Tag, Calendar, User, MessageSquare, AlignLeft, Archive, Trash2, Shield, RotateCcw } from 'lucide-react';
-import { supabase } from '../lib/supabase';
-import { useNavigate } from 'react-router-dom';
+import { 
+  Archive, 
+  RotateCcw, 
+  Trash2, 
+  CheckCircle2, 
+  Search, 
+  Building2, 
+  Tag, 
+  Calendar, 
+  User, 
+  AlignLeft, 
+  X, 
+  RefreshCw,
+  ShieldCheck,
+  Eye,
+  Filter
+} from 'lucide-react';
+import { supabase } from '../lib/supabase.js';
+import { getLocalTickets, updateLocalTicketStatus, deleteLocalTicket } from '../lib/ticketStorage.js';
 
 export default function AdminBitacora() {
   const [tickets, setTickets] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterType, setFilterType] = useState('all'); // 'all', 'resuelto', 'archivado'
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
   const adminUser = typeof window !== 'undefined' ? localStorage.getItem('admin_user') : '';
-  const navigate = useNavigate();
 
   useEffect(() => {
-    if (adminUser !== 'Johryan') {
-      navigate('/admin/tickets'); // Redirect unauthorized users
-    } else {
-      fetchTickets();
-    }
-  }, [adminUser, navigate]);
+    fetchArchivedTickets();
+  }, []);
 
-  const fetchTickets = async () => {
-    const { data, error } = await supabase
-      .from('tickets')
-      .select('*, zones(name), categories(name), equipos(name)')
-      .eq('status', 'Archivado')
-      .order('created_at', { ascending: false });
-    
-    if (!error && data) {
-      const mapped = data.map(t => ({
-        id: t.id,
-        displayId: t.id.substring(0, 8).toUpperCase(),
-        title: t.title,
-        description: t.description,
-        status: t.status,
-        priority: t.priority,
-        zone: t.zones?.name || 'Sin zona',
-        category: t.categories?.name || 'Sin categorÃ­a',
-        equipo: t.equipos?.name || 'Ninguno',
-        user: t.reporter_name,
-        date: new Date(t.created_at).toLocaleString(),
-        rawDate: t.created_at
-      }));
-      setTickets(mapped);
+  const showToast = (msg) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  const fetchArchivedTickets = async () => {
+    // 1. Cargar tickets locales concluidos o archivados
+    const local = getLocalTickets().filter(t => t.status === 'Archivado' || t.status === 'Resuelto');
+
+    // 2. Intentar consultar en Supabase si está disponible
+    try {
+      const { data, error } = await supabase
+        .from('tickets')
+        .select('*, zones(name), categories(name), equipos(name)')
+        .in('status', ['Archivado', 'Resuelto'])
+        .order('created_at', { ascending: false });
+
+      if (!error && data) {
+        const mappedRemote = data.map(t => ({
+          id: t.id ? t.id.toString() : 'TKT-' + Math.random().toString(36).substring(2, 6),
+          displayId: (t.id || '').toString(),
+          title: t.title,
+          description: t.description,
+          status: t.status,
+          priority: t.priority || 'Media',
+          zone: t.zones?.name || t.zone || 'Sucursal',
+          category: t.categories?.name || t.category || 'General',
+          equipo: t.equipos?.name || 'Ninguno',
+          user: t.reporter_name || 'Sucursal',
+          date: new Date(t.created_at || Date.now()).toLocaleString(),
+          rawDate: t.created_at
+        }));
+
+        const combined = [...local];
+        mappedRemote.forEach(rem => {
+          if (!combined.some(c => c.id === rem.id)) {
+            combined.push(rem);
+          }
+        });
+        setTickets(combined);
+        return;
+      }
+    } catch (e) {}
+
+    setTickets(local);
+  };
+
+  const handleRestore = async (id, e) => {
+    if (e) e.stopPropagation();
+    if (window.confirm('¿Desea restaurar este ticket y devolverlo al Centro de Control activo?')) {
+      updateLocalTicketStatus(id, 'Abierto');
+      setTickets(prev => prev.filter(t => t.id !== id));
+      if (selectedTicket && selectedTicket.id === id) {
+        setSelectedTicket(null);
+      }
+      showToast(`Incidencia #${id} restaurada a estado Abierto.`);
+    }
+  };
+
+  const handleDeletePermanent = async (id, e) => {
+    if (e) e.stopPropagation();
+    if (window.confirm('¿ATENCIÓN: Está seguro de eliminar permanentemente este registro del historial? Esta acción no se puede deshacer.')) {
+      deleteLocalTicket(id);
+      setTickets(prev => prev.filter(t => t.id !== id));
+      if (selectedTicket && selectedTicket.id === id) {
+        setSelectedTicket(null);
+      }
+      try {
+        await supabase.from('tickets').delete().eq('id', id);
+      } catch (err) {}
+      showToast(`Incidencia #${id} eliminada permanentemente.`);
     }
   };
 
   const getPriorityBadge = (priority) => {
     switch (priority) {
-      case 'Crítica': case 'Critica': return 'bg-red-500/20 text-red-400 border-red-500/40';
-      case 'Alta': return 'bg-orange-500/20 text-orange-400 border-orange-500/40';
-      case 'Media': return 'bg-blue-500/20 text-blue-400 border-blue-500/40';
-      default: return 'bg-slate-500/20 text-slate-300 border-slate-500/40';
+      case 'Crítica':
+      case 'Critica':
+        return 'bg-red-500/20 text-red-400 border-red-500/40';
+      case 'Alta':
+        return 'bg-orange-500/20 text-orange-400 border-orange-500/40';
+      case 'Media':
+        return 'bg-blue-500/20 text-blue-400 border-blue-500/40';
+      default:
+        return 'bg-slate-500/20 text-slate-300 border-slate-500/40';
     }
   };
 
-  const getPriorityColor = (priority) => {
-    switch (priority) {
-      case 'CrÃ­tica': return 'bg-red-100 text-red-700 font-bold';
-      case 'Alta': return 'bg-orange-100 text-orange-700 font-bold';
-      case 'Media': return 'bg-blue-100 text-blue-700 font-bold';
-      default: return 'bg-slate-100 text-slate-300 font-bold';
-    }
-  };
+  const filteredTickets = tickets.filter(t => {
+    if (filterType === 'resuelto' && t.status !== 'Resuelto') return false;
+    if (filterType === 'archivado' && t.status !== 'Archivado') return false;
 
-  const getStatusIcon = (status) => {
-    return <Archive className="w-4 h-4 text-slate-400" />;
-  };
-
-  const handleRestoreTicket = async (id, e) => {
-    e.stopPropagation();
-    if (window.confirm('Â¿Deseas restaurar este ticket? VolverÃ¡ al Centro de Control principal.')) {
-      const { error } = await supabase.from('tickets').update({ status: 'Abierto' }).eq('id', id);
-      if (!error) {
-        setTickets(tickets.filter(t => t.id !== id));
-        setToastMessage(`Ticket ${id.substring(0,8)} restaurado exitosamente.`);
-        setTimeout(() => setToastMessage(null), 3000);
-      }
-    }
-  };
-
-  const handleDeletePermanent = async (id, e) => {
-    e.stopPropagation();
-    if (window.confirm('Â¡ATENCIÃ“N! Â¿EstÃ¡s totalmente seguro de eliminar este ticket permanentemente? Esta acciÃ³n NO se puede deshacer.')) {
-      const { error } = await supabase.from('tickets').delete().eq('id', id);
-      if (!error) {
-        setTickets(tickets.filter(t => t.id !== id));
-        setToastMessage(`Ticket ${id.substring(0,8)} destruido permanentemente.`);
-        setTimeout(() => setToastMessage(null), 3000);
-      }
-    }
-  };
+    if (!searchTerm) return true;
+    const term = searchTerm.toLowerCase();
+    return (
+      (t.id && t.id.toLowerCase().includes(term)) ||
+      (t.title && t.title.toLowerCase().includes(term)) ||
+      (t.zone && t.zone.toLowerCase().includes(term)) ||
+      (t.user && t.user.toLowerCase().includes(term))
+    );
+  });
 
   return (
-    <div className="p-6 max-w-7xl mx-auto min-h-screen pb-24 bg-red-50/10">
+    <div className="p-3 sm:p-6 max-w-7xl mx-auto min-h-screen pb-24 font-sans">
+      
+      {/* Toast Alert */}
       {toastMessage && (
-        <div className="fixed top-6 right-6 z-50 bg-[#0a1128] border border-blue-500/30 text-white px-6 py-4 rounded-xl shadow-[0_0_30px_rgba(37,99,235,0.3)] animate-in slide-in-from-top-10 flex items-center gap-3">
-          <Shield className="w-5 h-5 text-blue-400" />
-          <span className="font-medium text-sm tracking-wide">{toastMessage}</span>
+        <div className="fixed top-20 right-4 sm:right-6 z-50 bg-[#0f172a] border border-cyan-500/40 text-white px-5 py-3 rounded-2xl shadow-xl animate-in slide-in-from-top-6 flex items-center gap-3">
+          <ShieldCheck className="w-5 h-5 text-cyan-400 shrink-0" />
+          <span className="font-semibold text-xs sm:text-sm tracking-wide">{toastMessage}</span>
         </div>
       )}
 
       {/* Header */}
-      <div className="sm:flex sm:items-center sm:justify-between mb-8 border-b border-red-200 pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-red-900 tracking-tight flex items-center gap-2">
-            <Archive className="w-6 h-6 text-red-600" />
-            BitÃ¡cora Privada - Archivo Secreto
+          <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight flex items-center gap-2.5">
+            <Archive className="w-6 h-6 sm:w-7 sm:h-7 text-cyan-400" />
+            Bitácora de Incidencias Concluidas y Archivo
           </h1>
-          <p className="mt-1 text-sm text-red-700 font-medium">Registro histÃ³rico de tickets eliminados. Acceso exclusivo para DirecciÃ³n (Johryan).</p>
+          <p className="mt-1 text-xs sm:text-sm text-slate-400 font-medium">
+            Historial de casos resueltos y archivados por el equipo administrativo ({adminUser || 'Johryan & Johnny'}).
+          </p>
         </div>
-          {/* Ticket Table */}
-      <div className="bg-[#0f172a] rounded-2xl shadow-sm border border-slate-700 overflow-hidden">
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={fetchArchivedTickets}
+            className="flex items-center gap-2 px-3 py-2 bg-[#0f172a] border border-slate-700 rounded-xl text-xs sm:text-sm font-bold text-slate-300 hover:bg-[#0a1128] transition-colors"
+          >
+            <RefreshCw className="w-3.5 h-3.5 text-cyan-400" /> Actualizar
+          </button>
+        </div>
+      </div>
+
+      {/* Buscador y Filtros */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+        <div className="relative w-full sm:max-w-md">
+          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+            <Search className="h-4 w-4 text-slate-400" />
+          </div>
+          <input 
+            type="text" 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Buscar por código #INC, sucursal o asunto..." 
+            className="block w-full pl-10 pr-4 py-2.5 border border-slate-700 rounded-xl bg-[#0f172a] text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-xs sm:text-sm"
+          />
+        </div>
+
+        <div className="flex gap-2 overflow-x-auto pb-1 text-xs sm:text-sm">
+          <button
+            onClick={() => setFilterType('all')}
+            className={`px-3.5 py-2 rounded-xl font-bold transition-all whitespace-nowrap ${filterType === 'all' ? 'bg-cyan-600 text-white shadow-md' : 'bg-[#0f172a] text-slate-400 border border-slate-800 hover:text-white'}`}
+          >
+            Todos ({tickets.length})
+          </button>
+          <button
+            onClick={() => setFilterType('resuelto')}
+            className={`px-3.5 py-2 rounded-xl font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${filterType === 'resuelto' ? 'bg-emerald-600 text-white shadow-md' : 'bg-[#0f172a] text-slate-400 border border-slate-800 hover:text-white'}`}
+          >
+            <CheckCircle2 className="w-3.5 h-3.5" /> Resueltos ({tickets.filter(t => t.status === 'Resuelto').length})
+          </button>
+          <button
+            onClick={() => setFilterType('archivado')}
+            className={`px-3.5 py-2 rounded-xl font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${filterType === 'archivado' ? 'bg-slate-700 text-white shadow-md' : 'bg-[#0f172a] text-slate-400 border border-slate-800 hover:text-white'}`}
+          >
+            <Archive className="w-3.5 h-3.5" /> Archivados ({tickets.filter(t => t.status === 'Archivado').length})
+          </button>
+        </div>
+      </div>
+
+      {/* Tabla y Tarjetas de Incidencias */}
+      <div className="bg-[#0f172a] rounded-2xl shadow-xl border border-slate-800 overflow-hidden">
+        
         {/* Desktop Table View */}
-        <div className="hidden md:block overflow-x-auto">
+        <div className="hidden lg:block overflow-x-auto">
           <table className="min-w-full divide-y divide-slate-800">
-            <thead className="bg-[#0a1128]/50">
+            <thead className="bg-[#0a1128]/70">
               <tr>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-widest">Ticket</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-widest">Código / Asunto</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-widest">Punto de Operación</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-widest">Estado</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-widest">Prioridad</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-widest">Zona / CategorÃ­a</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-widest">Fecha</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-widest">Severidad</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-widest">Fecha Registro</th>
                 <th className="px-6 py-4 text-right text-xs font-bold text-slate-400 uppercase tracking-widest">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800">
-              {tickets.map((ticket) => (
+              {filteredTickets.map((ticket) => (
                 <tr 
                   key={ticket.id} 
                   onClick={() => setSelectedTicket(ticket)}
                   className="hover:bg-[#0a1128]/80 transition-colors cursor-pointer group"
                 >
                   <td className="px-6 py-4">
-                    <div className="font-bold text-white text-sm">TKT-{ticket.displayId}</div>
-                    <div className="text-slate-400 text-sm mt-0.5 truncate max-w-[200px]">{ticket.title}</div>
+                    <div className="font-mono font-bold text-cyan-400 text-sm">#{ticket.id}</div>
+                    <div className="text-white text-sm font-semibold mt-0.5 max-w-[280px] truncate">{ticket.title}</div>
+                    <div className="text-xs text-slate-500">{ticket.category}</div>
                   </td>
                   <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
-                      {getStatusIcon(ticket.status)}
-                      <span className="text-sm font-bold text-slate-300">{ticket.status}</span>
+                    <div className="flex items-center gap-1.5 text-sm font-semibold text-slate-200">
+                      <Building2 className="w-4 h-4 text-cyan-400 shrink-0" />
+                      <span>{ticket.zone || 'Sucursal'}</span>
                     </div>
+                    <div className="text-xs text-slate-400">Por: {ticket.user}</div>
                   </td>
                   <td className="px-6 py-4">
-                    <span className={`px-3 py-1 rounded-full text-xs ${getPriorityColor(ticket.priority)}`}>
+                    {ticket.status === 'Resuelto' ? (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-950/60 text-emerald-400 border border-emerald-800">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Concluido
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-800 text-slate-400 border border-slate-700">
+                        <Archive className="w-3.5 h-3.5" /> Archivado
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className={`px-2.5 py-1 rounded-lg text-xs font-bold border ${getPriorityBadge(ticket.priority)}`}>
                       {ticket.priority}
                     </span>
                   </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm font-medium text-slate-300">{ticket.zone}</div>
-                    <div className="text-xs text-slate-400 mt-0.5">{ticket.category}</div>
+                  <td className="px-6 py-4 text-xs text-slate-400 whitespace-nowrap">
+                    {ticket.date}
                   </td>
-                  <td className="px-6 py-4 text-sm font-medium text-slate-400 whitespace-nowrap">
-                    {ticket.date.split(',')[0]}
-                  </td>
-                  <td className="px-6 py-4 text-right flex justify-end gap-2">
-                    <button 
-                      onClick={(e) => handleRestoreTicket(ticket.id, e)}
-                      className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100 md:opacity-100"
-                      title="Restaurar a Centro de Control"
-                    >
-                      <RotateCcw className="w-5 h-5" />
-                    </button>
-                    <button 
-                      onClick={(e) => handleDeletePermanent(ticket.id, e)}
-                      className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100 md:opacity-100"
-                      title="Eliminar Permanentemente"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
+                  <td className="px-6 py-4 text-right">
+                    <div className="flex items-center justify-end gap-1.5" onClick={e => e.stopPropagation()}>
+                      <button
+                        onClick={(e) => handleRestore(ticket.id, e)}
+                        className="p-2 text-cyan-400 hover:bg-cyan-950/40 rounded-lg transition-colors border border-cyan-800/40"
+                        title="Restaurar a Activos"
+                      >
+                        <RotateCcw className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={(e) => handleDeletePermanent(ticket.id, e)}
+                        className="p-2 text-red-400 hover:bg-red-950/40 rounded-lg transition-colors border border-red-800/40"
+                        title="Eliminar Permanente"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
-              {tickets.length === 0 && (
+              {filteredTickets.length === 0 && (
                 <tr>
                   <td colSpan="6" className="px-6 py-12 text-center text-slate-400 font-medium">
-                    No se encontraron tickets en esta vista.
+                    No se encontraron incidencias en el archivo histórico.
                   </td>
                 </tr>
               )}
@@ -182,217 +288,172 @@ export default function AdminBitacora() {
           </table>
         </div>
 
-        {/* Mobile Cards View */}
-        <div className="md:hidden divide-y divide-slate-800">
-          {tickets.map((ticket) => (
+        {/* Mobile / Tablet Cards View */}
+        <div className="lg:hidden divide-y divide-slate-800">
+          {filteredTickets.map((ticket) => (
             <div 
-              key={ticket.id} 
+              key={ticket.id}
               onClick={() => setSelectedTicket(ticket)}
               className="p-4 hover:bg-[#0a1128] transition-colors cursor-pointer flex flex-col gap-3"
             >
-              <div className="flex justify-between items-start">
-                <div>
-                  <div className="font-bold text-white text-sm">TKT-{ticket.displayId}</div>
-                  <div className="text-slate-400 text-sm mt-1">{ticket.title}</div>
+              <div className="flex justify-between items-start gap-2">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-xs font-bold text-cyan-400">#{ticket.id}</span>
+                    {ticket.status === 'Resuelto' ? (
+                      <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-950/60 text-emerald-400 border border-emerald-800">
+                        Concluido
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-slate-800 text-slate-400 border border-slate-700">
+                        Archivado
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="font-bold text-white text-sm sm:text-base mt-1 line-clamp-2">
+                    {ticket.title}
+                  </h3>
                 </div>
-                <div className="flex gap-1 -mr-2">
-                  <button 
-                    onClick={(e) => handleRestoreTicket(ticket.id, e)}
-                    className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+
+                <div className="flex items-center gap-1.5 shrink-0" onClick={e => e.stopPropagation()}>
+                  <button
+                    onClick={(e) => handleRestore(ticket.id, e)}
+                    className="p-2 text-cyan-400 bg-slate-800/90 rounded-xl border border-slate-700"
+                    title="Restaurar"
                   >
-                    <RotateCcw className="w-5 h-5" />
+                    <RotateCcw className="w-4 h-4" />
                   </button>
-                  <button 
+                  <button
                     onClick={(e) => handleDeletePermanent(ticket.id, e)}
-                    className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    className="p-2 text-red-400 bg-slate-800/90 rounded-xl border border-slate-700"
+                    title="Eliminar"
                   >
-                    <Trash2 className="w-5 h-5" />
+                    <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
               </div>
-              
-              <div className="flex flex-wrap gap-2">
-                <span className={`px-2.5 py-1 rounded-full text-xs flex items-center gap-1.5 ${getPriorityColor(ticket.priority)}`}>
-                  {ticket.priority}
-                </span>
-                <span className="px-2.5 py-1 rounded-full text-xs font-bold text-slate-300 bg-slate-100 flex items-center gap-1.5">
-                  {getStatusIcon(ticket.status)}
-                  {ticket.status}
-                </span>
-              </div>
-              
-              <div className="text-xs text-slate-400 flex justify-between items-center mt-1">
-                <div className="flex items-center gap-1">
-                  <MapPin className="w-3.5 h-3.5" />
+
+              <div className="flex items-center justify-between text-xs text-slate-400 pt-1 border-t border-slate-800/60">
+                <div className="flex items-center gap-1.5 font-semibold text-slate-200">
+                  <Building2 className="w-3.5 h-3.5 text-cyan-400" />
                   <span>{ticket.zone}</span>
                 </div>
-                <div className="font-medium text-slate-400">
-                  {ticket.date.split(',')[0]}
-                </div>
+                <span>{ticket.date}</span>
               </div>
             </div>
           ))}
-          {tickets.length === 0 && (
-            <div className="p-8 text-center text-slate-400 font-medium">
-              No se encontraron tickets en esta vista.
+          {filteredTickets.length === 0 && (
+            <div className="p-8 text-center text-slate-400 font-medium text-sm">
+              No se encontraron incidencias en el archivo histórico.
             </div>
           )}
         </div>
       </div>
-      </div>
 
-      {/* Modal / Slide-over para Detalle de Ticket */}
+      {/* Modal / Slide-over para Detalle de Incidencia Histórica */}
       {selectedTicket && typeof document !== 'undefined' && createPortal(
-        <div className="fixed inset-0 z-[9999] overflow-hidden flex justify-end" aria-labelledby="slide-over-title" role="dialog" aria-modal="true">
-          <div className="absolute inset-0 bg-[#0a1128]/80 backdrop-blur-md transition-opacity" onClick={() => setSelectedTicket(null)}></div>
+        <div className="fixed inset-0 z-[9999] overflow-hidden flex justify-end" role="dialog" aria-modal="true">
+          <div 
+            className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm transition-opacity" 
+            onClick={() => setSelectedTicket(null)}
+          ></div>
           
-          <div className="relative w-full max-w-2xl h-full bg-[#0a1128] border-l border-blue-500/20 shadow-[0_0_50px_rgba(37,99,235,0.15)] flex flex-col transform transition-transform animate-in slide-in-from-right duration-300">
-            {/* Glow decorativo de borde superior */}
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-cyan-400 to-blue-600"></div>
+          <div className="relative w-full max-w-xl h-full bg-[#0a1128] border-l border-slate-800 shadow-2xl flex flex-col transform transition-transform animate-in slide-in-from-right duration-300">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-600 via-cyan-400 to-emerald-500"></div>
 
-            {/* Header del Modal */}
-            <div className="px-8 py-6 border-b border-white/5 flex justify-between items-start bg-[#0f172a]/5">
-              <div>
-                <div className="flex items-center gap-3 mb-2">
-                  <h2 className="text-2xl font-extrabold text-white tracking-tight">{selectedTicket.id}</h2>
-                  <span className={`px-3 py-1 text-xs font-bold rounded-full border ${getPriorityBadge(selectedTicket.priority)}`}>
+            {/* Modal Header */}
+            <div className="p-5 sm:p-6 border-b border-slate-800 flex justify-between items-start bg-[#0f172a]">
+              <div className="min-w-0 pr-3">
+                <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                  <h2 className="text-lg sm:text-xl font-extrabold text-white font-mono">
+                    #{selectedTicket.id}
+                  </h2>
+                  <span className={`px-2.5 py-0.5 text-xs font-bold rounded-lg border ${getPriorityBadge(selectedTicket.priority)}`}>
                     {selectedTicket.priority}
                   </span>
-                  <span className="px-3 py-1 text-xs font-bold rounded-full bg-[#0f172a]/10 text-slate-300 border border-white/10 flex items-center gap-1.5">
-                    {getStatusIcon(selectedTicket.status)} {selectedTicket.status}
+                  <span className={`px-2.5 py-0.5 text-xs font-bold rounded-lg ${selectedTicket.status === 'Resuelto' ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800' : 'bg-slate-800 text-slate-400 border border-slate-700'}`}>
+                    {selectedTicket.status}
                   </span>
                 </div>
-                <p className="text-base font-medium text-slate-400">{selectedTicket.title}</p>
+                <h3 className="text-sm sm:text-base font-semibold text-slate-300">
+                  {selectedTicket.title}
+                </h3>
               </div>
               <button 
                 onClick={() => setSelectedTicket(null)}
-                className="bg-[#0f172a]/5 rounded-xl p-2.5 hover:bg-[#0f172a]/10 transition-colors text-slate-400 border border-white/10"
+                className="bg-slate-800/80 rounded-xl p-2 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Contenido del Modal */}
-            <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+            {/* Modal Content */}
+            <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6">
               
-              {/* Meta info Grid */}
-              <div className="grid grid-cols-2 gap-4 mb-8">
-                <div className="flex items-start gap-4 p-4 bg-[#0f172a]/5 rounded-2xl border border-white/5">
-                  <div className="p-2 bg-blue-500/10 rounded-lg text-blue-400"><MapPin className="w-5 h-5" /></div>
-                  <div>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Punto Operativo</p>
-                    <p className="text-sm text-slate-200 font-semibold">{selectedTicket.zone}</p>
+              {/* Grid de Metadatos */}
+              <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                <div className="p-3.5 bg-[#0f172a] rounded-xl border border-slate-800">
+                  <div className="flex items-center gap-2 text-cyan-400 mb-1">
+                    <Building2 className="w-4 h-4" />
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Punto Operativo</span>
                   </div>
+                  <p className="text-sm font-bold text-white">{selectedTicket.zone}</p>
                 </div>
-                <div className="flex items-start gap-4 p-4 bg-[#0f172a]/5 rounded-2xl border border-white/5">
-                  <div className="p-2 bg-cyan-500/10 rounded-lg text-cyan-400"><Tag className="w-5 h-5" /></div>
-                  <div>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">CategorÃƒÂ­a</p>
-                    <p className="text-sm text-slate-200 font-semibold">{selectedTicket.category}</p>
+
+                <div className="p-3.5 bg-[#0f172a] rounded-xl border border-slate-800">
+                  <div className="flex items-center gap-2 text-blue-400 mb-1">
+                    <Tag className="w-4 h-4" />
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Línea de Servicio</span>
                   </div>
+                  <p className="text-xs sm:text-sm font-semibold text-slate-200 truncate">{selectedTicket.category}</p>
                 </div>
-                <div className="flex items-start gap-4 p-4 bg-[#0f172a]/5 rounded-2xl border border-white/5">
-                  <div className="p-2 bg-indigo-500/10 rounded-lg text-indigo-400"><User className="w-5 h-5" /></div>
-                  <div>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Emisor</p>
-                    <p className="text-sm text-slate-200 font-semibold">{selectedTicket.user}</p>
+
+                <div className="p-3.5 bg-[#0f172a] rounded-xl border border-slate-800">
+                  <div className="flex items-center gap-2 text-indigo-400 mb-1">
+                    <User className="w-4 h-4" />
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Emisor</span>
                   </div>
+                  <p className="text-sm font-bold text-slate-200">{selectedTicket.user}</p>
                 </div>
-                <div className="flex items-start gap-4 p-4 bg-[#0f172a]/5 rounded-2xl border border-white/5">
-                  <div className="p-2 bg-amber-500/10 rounded-lg text-amber-400"><Calendar className="w-5 h-5" /></div>
-                  <div>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Timestamp</p>
-                    <p className="text-sm text-slate-200 font-semibold">{selectedTicket.date}</p>
+
+                <div className="p-3.5 bg-[#0f172a] rounded-xl border border-slate-800">
+                  <div className="flex items-center gap-2 text-amber-400 mb-1">
+                    <Calendar className="w-4 h-4" />
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Fecha</span>
                   </div>
+                  <p className="text-xs font-semibold text-slate-300">{selectedTicket.date}</p>
                 </div>
               </div>
 
-              {/* DescripciÃƒÂ³n */}
-              <div className="mb-8">
-                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
-                  <AlignLeft className="w-4 h-4 text-slate-400" /> Registro del Incidente
-                </h3>
-                <div className="bg-[#0f172a]/5 p-6 rounded-2xl border border-white/5 text-sm text-slate-300 leading-relaxed font-mono">
+              {/* Bitácora de Observaciones */}
+              <div>
+                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-2">
+                  <AlignLeft className="w-4 h-4 text-cyan-400" /> Detalle Registrado
+                </h4>
+                <div className="bg-[#0f172a] p-4 sm:p-5 rounded-xl border border-slate-800 text-sm text-slate-200 leading-relaxed whitespace-pre-wrap font-sans">
                   {selectedTicket.description}
                 </div>
               </div>
-
-              {/* Historial / Chat */}
-              <div>
-                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
-                  <MessageSquare className="w-4 h-4 text-slate-400" /> BitÃƒÂ¡cora de Soporte
-                </h3>
-                <div className="space-y-6 relative before:absolute before:inset-0 before:ml-6 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-px before:bg-gradient-to-b before:from-blue-500/50 before:via-white/10 before:to-transparent">
-                  
-                  {/* Nota 1 */}
-                  <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group">
-                    <div className="flex items-center justify-center w-12 h-12 rounded-full bg-[#0a1128] border border-blue-500 text-blue-400 font-bold text-sm shadow-[0_0_15px_rgba(37,99,235,0.3)] shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10">
-                      S1
-                    </div>
-                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-3rem)] bg-[#0f172a]/5 p-5 rounded-2xl border border-white/10">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-bold text-white text-sm">IngenierÃƒÂ­a Nivel 1</span>
-                        <span className="text-xs font-medium text-slate-400">Hace 2 min</span>
-                      </div>
-                      <p className="text-sm text-slate-400">AnÃƒÂ¡lisis inicial completado. Dispositivo fuera de red. Escalamiento a cuadrilla en sitio en proceso.</p>
-                    </div>
-                  </div>
-
-                  {/* Nueva Nota Input */}
-                  <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group mt-6">
-                    <div className="flex items-center justify-center w-12 h-12 rounded-full bg-[#0a1128] border border-white/10 text-slate-400 shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10">
-                      +
-                    </div>
-                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-3rem)] bg-[#0f172a]/5 p-2 rounded-2xl border border-white/10 focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 transition-all flex items-center">
-                      <input type="text" placeholder="AÃƒÂ±adir nota cifrada a la bitÃƒÂ¡cora..." className="w-full px-3 py-2 text-sm outline-none bg-transparent text-slate-200 placeholder-slate-500" />
-                      <button className="p-2 bg-blue-600 text-white rounded-xl hover:bg-blue-500 transition-colors shadow-sm">
-                        <CheckCircle2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-
-                </div>
-              </div>
-
             </div>
-            
-            {/* Footer Actions */}
-            <div className="p-6 border-t border-white/5 bg-[#0f172a]/5 flex items-center gap-4">
-              <div className="flex-1">
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1.5">Estado Operativo</label>
-                <select 
-                  id="status-select"
-                  defaultValue={selectedTicket.status}
-                  className="w-full bg-[#0a1128] border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-slate-200 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all appearance-none cursor-pointer"
-                >
-                  <option value="Abierto">Ã°Å¸â€Â´ Triage Pendiente (Abierto)</option>
-                  <option value="En Progreso">Ã°Å¸â€Âµ OperaciÃƒÂ³n en Curso</option>
-                  <option value="Resuelto">Ã°Å¸Å¸Â¢ MisiÃƒÂ³n Cumplida (Resolver)</option>
-                </select>
-              </div>
-              <button 
-                onClick={() => {
-                  const newStatus = document.getElementById('status-select').value;
-                  const cleanStatus = newStatus.replace(/Ã°Å¸Å¸Â¢ |Ã°Å¸â€Âµ |Ã°Å¸â€Â´ |Triage Pendiente \(|\)|OperaciÃƒÂ³n en Curso|MisiÃƒÂ³n Cumplida \(/g, '').replace('Resolver)', 'Resuelto').replace('Abierto)', 'Abierto').replace('En Curso', 'En Progreso').trim();
-                  
-                  // Mapeo seguro
-                  let finalStatus = 'Abierto';
-                  if(newStatus.includes('Progreso') || newStatus.includes('Curso')) finalStatus = 'En Progreso';
-                  if(newStatus.includes('Resuelto') || newStatus.includes('Cumplida')) finalStatus = 'Resuelto';
 
-                  setTickets(tickets.map(t => t.id === selectedTicket.id ? { ...t, status: finalStatus } : t));
-                  setToastMessage(`Sistema: Ticket ${selectedTicket.id} actualizado a ${finalStatus}`);
-                  setTimeout(() => setToastMessage(null), 3000);
-                  setSelectedTicket(null);
-                }}
-                className="px-8 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white text-sm font-bold rounded-xl hover:from-blue-500 hover:to-cyan-500 transition-all shadow-[0_0_20px_rgba(37,99,235,0.4)] self-end"
+            {/* Modal Footer */}
+            <div className="p-4 sm:p-5 border-t border-slate-800 bg-[#0f172a] flex justify-between gap-3">
+              <button
+                onClick={(e) => handleRestore(selectedTicket.id, e)}
+                className="px-4 py-2.5 bg-cyan-950/40 border border-cyan-800 text-cyan-400 rounded-xl text-xs sm:text-sm font-bold hover:bg-cyan-900/40 transition-colors flex items-center gap-2"
               >
-                Actualizar Estado
+                <RotateCcw className="w-4 h-4" /> Restaurar Caso
+              </button>
+              <button
+                onClick={() => setSelectedTicket(null)}
+                className="px-6 py-2.5 bg-slate-800 text-white rounded-xl text-xs sm:text-sm font-bold hover:bg-slate-700 transition-colors"
+              >
+                Cerrar Detalle
               </button>
             </div>
-
           </div>
-        </div>, document.body
+        </div>,
+        document.body
       )}
 
     </div>

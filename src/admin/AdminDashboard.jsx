@@ -152,10 +152,11 @@ export default function AdminDashboard() {
 
   const filteredTickets = tickets.filter(t => {
     if (filter === 'archived') return t.status === 'Archivado';
-    if (t.status === 'Archivado') return false;
+    if (filter === 'resolved') return t.status === 'Resuelto';
+    if (filter === 'progress') return t.status === 'En Progreso';
     if (filter === 'open') return t.status === 'Abierto';
-    if (filter === 'critical') return t.priority === 'Crítica' || t.priority === 'Critica';
-    return true;
+    if (filter === 'critical') return (t.priority === 'Crítica' || t.priority === 'Critica') && t.status !== 'Archivado';
+    return t.status !== 'Archivado'; // 'all'
   });
 
   const handleUpdateStatus = async (id, newStatus, e) => {
@@ -268,21 +269,39 @@ export default function AdminDashboard() {
       <div className="flex gap-2 mb-6 overflow-x-auto pb-2 scrollbar-hide text-xs sm:text-sm">
         <button 
           onClick={() => setFilter('all')} 
-          className={`px-4 py-2 rounded-xl font-bold whitespace-nowrap transition-all ${filter === 'all' ? 'bg-cyan-600 text-white shadow-lg' : 'bg-[#0f172a] text-slate-400 border border-slate-800 hover:text-white'}`}
+          className={`px-3.5 py-2 rounded-xl font-bold whitespace-nowrap transition-all ${filter === 'all' ? 'bg-cyan-600 text-white shadow-lg' : 'bg-[#0f172a] text-slate-400 border border-slate-800 hover:text-white'}`}
         >
           Todos ({tickets.filter(t => t.status !== 'Archivado').length})
         </button>
         <button 
           onClick={() => setFilter('open')} 
-          className={`px-4 py-2 rounded-xl font-bold whitespace-nowrap transition-all ${filter === 'open' ? 'bg-orange-600 text-white shadow-lg' : 'bg-[#0f172a] text-slate-400 border border-slate-800 hover:text-white'}`}
+          className={`px-3.5 py-2 rounded-xl font-bold whitespace-nowrap transition-all ${filter === 'open' ? 'bg-orange-600 text-white shadow-lg' : 'bg-[#0f172a] text-slate-400 border border-slate-800 hover:text-white'}`}
         >
           Abiertos ({tickets.filter(t => t.status === 'Abierto').length})
         </button>
         <button 
+          onClick={() => setFilter('progress')} 
+          className={`px-3.5 py-2 rounded-xl font-bold whitespace-nowrap transition-all ${filter === 'progress' ? 'bg-blue-600 text-white shadow-lg' : 'bg-[#0f172a] text-slate-400 border border-slate-800 hover:text-white'}`}
+        >
+          En Progreso ({tickets.filter(t => t.status === 'En Progreso').length})
+        </button>
+        <button 
+          onClick={() => setFilter('resolved')} 
+          className={`px-3.5 py-2 rounded-xl font-bold whitespace-nowrap transition-all flex items-center gap-1.5 ${filter === 'resolved' ? 'bg-emerald-600 text-white shadow-lg' : 'bg-[#0f172a] text-slate-400 border border-slate-800 hover:text-white'}`}
+        >
+          <CheckCircle2 className="w-3.5 h-3.5" /> Concluidos ({tickets.filter(t => t.status === 'Resuelto').length})
+        </button>
+        <button 
           onClick={() => setFilter('critical')} 
-          className={`px-4 py-2 rounded-xl font-bold whitespace-nowrap transition-all ${filter === 'critical' ? 'bg-red-600 text-white shadow-lg' : 'bg-[#0f172a] text-slate-400 border border-slate-800 hover:text-white'}`}
+          className={`px-3.5 py-2 rounded-xl font-bold whitespace-nowrap transition-all ${filter === 'critical' ? 'bg-red-600 text-white shadow-lg' : 'bg-[#0f172a] text-slate-400 border border-slate-800 hover:text-white'}`}
         >
           Críticos ({tickets.filter(t => (t.priority === 'Crítica' || t.priority === 'Critica') && t.status !== 'Archivado').length})
+        </button>
+        <button 
+          onClick={() => setFilter('archived')} 
+          className={`px-3.5 py-2 rounded-xl font-bold whitespace-nowrap transition-all flex items-center gap-1.5 ${filter === 'archived' ? 'bg-slate-700 text-white shadow-lg' : 'bg-[#0f172a] text-slate-400 border border-slate-800 hover:text-white'}`}
+        >
+          <Archive className="w-3.5 h-3.5" /> Archivados ({tickets.filter(t => t.status === 'Archivado').length})
         </button>
       </div>
 
