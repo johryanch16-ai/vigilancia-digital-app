@@ -1,6 +1,6 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, MapPin, Tags, Settings, LogOut, Bell, Search, Menu, X, Monitor, Archive, Users, ExternalLink, ShieldAlert } from 'lucide-react';
+import { LayoutDashboard, Building2, MapPin, Tags, Settings, LogOut, Bell, Search, Menu, X, Monitor, Archive, Users, ExternalLink, ShieldAlert } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { subscribeToTickets } from '../lib/ticketStorage';
 import { playNotificationSound } from '../lib/notificationAudio';
@@ -66,6 +66,7 @@ export default function AdminLayout() {
 
   let navigation = [
     { name: 'Dashboard', to: '/admin/tickets', icon: LayoutDashboard },
+    { name: 'Tickets por Sucursal', to: '/admin/branch-tickets', icon: Building2 },
     { name: 'Bitácora y Concluidos', to: '/admin/bitacora', icon: Archive },
     { name: 'Usuarios Sucursales', to: '/admin/users', icon: Users },
     { name: 'Equipos', to: '/admin/equipos', icon: Monitor },

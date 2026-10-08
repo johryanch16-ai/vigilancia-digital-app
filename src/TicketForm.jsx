@@ -13,7 +13,8 @@ import {
   ShieldAlert
 } from 'lucide-react';
 import { BRANCH_NAMES } from './lib/branches';
-import { createTicket } from './lib/ticketStorage';
+import { createTicket, getLocalTickets, subscribeToTickets } from './lib/ticketStorage.js';
+
 
 const TicketForm = ({ currentUser }) => {
   // Inicializar sucursal automáticamente según el usuario conectado
@@ -29,6 +30,31 @@ const TicketForm = ({ currentUser }) => {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successTicket, setSuccessTicket] = useState(null);
+  const [recentBranchTickets, setRecentBranchTickets] = useState([]);
+
+  // Cargar tickets de esta sucursal
+  const loadRecentTickets = () => {
+    const branchName = currentUser?.branch || currentUser?.name || formData.branch;
+    if (!branchName) return;
+    const all = getLocalTickets();
+    const branchLower = branchName.toLowerCase();
+    const filtered = all.filter(t => 
+      (t.zone && t.zone.toLowerCase() === branchLower) ||
+      (t.user && t.user.toLowerCase() === branchLower) ||
+      (t.reporter_name && t.reporter_name.toLowerCase() === branchLower)
+    );
+    setRecentBranchTickets(filtered);
+  };
+
+  useEffect(() => {
+    loadRecentTickets();
+    const unsubscribe = subscribeToTickets(
+      () => loadRecentTickets(),
+      () => loadRecentTickets(),
+      () => loadRecentTickets()
+    );
+    return () => unsubscribe();
+  }, [currentUser, formData.branch]);
 
   useEffect(() => {
     if (currentUser?.branch) {
@@ -317,6 +343,63 @@ const TicketForm = ({ currentUser }) => {
           </button>
         </div>
       </form>
+
+      {/* Apartado en vivo: Incidencias Enviadas por esta Sucursal y su Estado */}
+      <div className="border-t border-slate-700/80 bg-[#0a1128]/70 p-5 sm:p-7">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Clock className="w-5 h-5 text-cyan-400" />
+            <h3 className="text-sm sm:text-base font-bold text-white">
+              Estado de Incidencias Enviadas por {currentUser?.name || formData.branch || 'esta Sucursal'}
+            </h3>
+          </div>
+          <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 border border-slate-700">
+            {recentBranchTickets.length} {recentBranchTickets.length === 1 ? 'reporte' : 'reportes'}
+          </span>
+        </div>
+
+        {recentBranchTickets.length === 0 ? (
+          <p className="text-xs sm:text-sm text-slate-500 py-3">
+            No hay reportes previos registrados para esta sucursal. Los nuevos tickets que envíes aparecerán aquí inmediatamente con su avance.
+          </p>
+        ) : (
+          <div className="space-y-2.5">
+            {recentBranchTickets.slice(0, 5).map(ticket => (
+              <div 
+                key={ticket.id}
+                className="bg-[#0f172a] rounded-xl p-3 sm:p-4 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 hover:border-slate-700 transition-colors"
+              >
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="font-mono text-cyan-400 font-bold text-xs sm:text-sm">#{ticket.id}</span>
+                    <span className="text-[11px] text-slate-400">• {ticket.category}</span>
+                  </div>
+                  <h4 className="text-xs sm:text-sm font-semibold text-white truncate">{ticket.title}</h4>
+                  <p className="text-[11px] text-slate-400 mt-0.5 line-clamp-1">{ticket.description}</p>
+                </div>
+
+                <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-800/80">
+                  <span className="text-[11px] text-slate-500">{ticket.date.split(',')[0]}</span>
+                  {ticket.status === 'Resuelto' ? (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-950/70 text-emerald-400 border border-emerald-800">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Solucionado
+                    </span>
+                  ) : ticket.status === 'En Progreso' ? (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-950/70 text-blue-400 border border-blue-800 animate-pulse">
+                      <Clock className="w-3.5 h-3.5" /> En Atención
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-orange-950/70 text-orange-400 border border-orange-800">
+                      <AlertTriangle className="w-3.5 h-3.5" /> Pendiente
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
     </div>
   );
 };

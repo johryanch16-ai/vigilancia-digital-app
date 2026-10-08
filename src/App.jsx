@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import AppClient from './AppClient';
 import Login from './Login';
@@ -10,6 +10,7 @@ import AdminSettings from './admin/AdminSettings';
 import AdminEquipos from './admin/AdminEquipos';
 import AdminBitacora from './admin/AdminBitacora';
 import AdminUsers from './admin/AdminUsers';
+import AdminBranchTickets from './admin/AdminBranchTickets';
 
 function App() {
   return (
@@ -25,7 +26,7 @@ function App() {
           <Route path="equipos" element={<AdminEquipos />} />
           <Route path="zones" element={<AdminZones />} />
           <Route path="categories" element={<AdminCategories />} />
-          <Route path="users" element={<AdminUsers />} />
+          <Route path="users" element={<AdminUsers />} />`n          <Route path="branch-tickets" element={<AdminBranchTickets />} />
           <Route path="settings" element={<AdminSettings />} />
           <Route path="bitacora" element={<AdminBitacora />} />
         </Route>
