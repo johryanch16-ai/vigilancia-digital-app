@@ -39,14 +39,41 @@ export function updateLocalTicketStatus(id, newStatus) {
   } catch (e) {}
 }
 
+// Generador de Consecutivo Profesional (Ej: INC-2026-0001, INC-2026-0002...)
+export function getNextTicketNumber() {
+  const year = new Date().getFullYear();
+  let maxNum = 0;
+
+  if (typeof window !== 'undefined') {
+    const existing = getLocalTickets();
+    existing.forEach(t => {
+      if (t.id) {
+        const match = t.id.match(/INC-(\d{4})-(\d+)/);
+        if (match && parseInt(match[1]) === year) {
+          const num = parseInt(match[2], 10);
+          if (num > maxNum) maxNum = num;
+        }
+      }
+    });
+
+    const storedSeq = parseInt(localStorage.getItem('vigilancia_ticket_seq') || '0', 10);
+    const nextNum = Math.max(maxNum, storedSeq) + 1;
+    localStorage.setItem('vigilancia_ticket_seq', nextNum.toString());
+    const padded = String(nextNum).padStart(4, '0');
+    return `INC-${year}-${padded}`;
+  }
+
+  return `INC-${year}-0001`;
+}
+
 export async function createTicket({ title, description, priority, branch, category, reporterName }) {
-  const generatedId = 'TKT-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+  const generatedId = getNextTicketNumber();
   const nowIso = new Date().toISOString();
   const displayDate = new Date().toLocaleString();
 
   const ticketObj = {
     id: generatedId,
-    displayId: generatedId.replace('TKT-', ''),
+    displayId: generatedId,
     title: title.trim(),
     description: description.trim(),
     priority: priority || 'Media',
@@ -144,8 +171,8 @@ export function subscribeToTickets(onNewTicket, onStatusChange) {
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tickets' }, (payload) => {
         if (payload?.new && onNewTicket) {
           const remoteTicket = {
-            id: payload.new.id ? payload.new.id.toString() : 'TKT-REMOTE',
-            displayId: (payload.new.id || '').toString().substring(0, 8).toUpperCase(),
+            id: payload.new.id ? payload.new.id.toString() : getNextTicketNumber(),
+            displayId: (payload.new.id || '').toString(),
             title: payload.new.title || payload.new.subject || 'Incidencia',
             description: payload.new.description || '',
             priority: payload.new.priority || 'Media',

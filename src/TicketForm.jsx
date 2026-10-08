@@ -119,21 +119,16 @@ const TicketForm = ({ currentUser }) => {
 
       {/* Alerta de Ticket Creado Exitosamente */}
       {successTicket && (
-        <div className="m-4 sm:m-6 p-4 sm:p-5 bg-emerald-950/40 border border-emerald-500/40 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in fade-in duration-300">
-          <div className="flex items-start gap-3">
-            <CheckCircle2 className="w-6 h-6 text-emerald-400 shrink-0 mt-0.5" />
-            <div>
-              <h4 className="text-sm sm:text-base font-bold text-white">
-                ¡Incidencia Registrada Exitosamente! #{successTicket.id}
-              </h4>
-              <p className="text-xs sm:text-sm text-emerald-300/90 mt-0.5">
-                Los administradores (Johryan y Johnny) han recibido la alerta en tiempo real en la central de monitoreo.
-              </p>
-            </div>
+        <div className="m-4 sm:m-6 p-4 sm:p-5 bg-emerald-950/40 border border-emerald-500/40 rounded-xl flex items-center justify-between gap-4 animate-in fade-in duration-300 shadow-[0_0_20px_rgba(16,185,129,0.2)]">
+          <div className="flex items-center gap-3">
+            <CheckCircle2 className="w-6 h-6 text-emerald-400 shrink-0" />
+            <h4 className="text-sm sm:text-base font-bold text-white font-mono tracking-tight">
+              ¡Incidencia Registrada Exitosamente! #{successTicket.id}
+            </h4>
           </div>
           <button
             onClick={() => setSuccessTicket(null)}
-            className="text-xs font-bold px-3 py-1.5 bg-emerald-800/40 hover:bg-emerald-800/70 text-emerald-200 border border-emerald-600/40 rounded-lg transition-colors self-end sm:self-auto"
+            className="text-xs font-bold px-3 py-1.5 bg-emerald-800/40 hover:bg-emerald-800/70 text-emerald-200 border border-emerald-600/40 rounded-lg transition-colors shrink-0"
           >
             Cerrar aviso
           </button>
