@@ -34,7 +34,11 @@ export function updateLocalTicketStatus(id, newStatus) {
     let updatedTicket = null;
     const updated = existing.map(t => {
       if (t.id === id) {
-        updatedTicket = { ...t, status: newStatus, resolved_at: newStatus === 'Resuelto' ? new Date().toISOString() : t.resolved_at };
+        updatedTicket = { 
+          ...t, 
+          status: newStatus, 
+          resolved_at: newStatus === 'Resuelto' ? new Date().toISOString() : t.resolved_at 
+        };
         return updatedTicket;
       }
       return t;
@@ -60,6 +64,46 @@ export function updateLocalTicketStatus(id, newStatus) {
   }
 }
 
+// Edición completa de datos de ticket por el administrador (corregir errores de envío)
+export function updateTicketData(id, fields) {
+  if (typeof window === 'undefined') return null;
+  try {
+    const existing = getLocalTickets();
+    let updatedTicket = null;
+    const updated = existing.map(t => {
+      if (t.id === id) {
+        updatedTicket = { ...t, ...fields };
+        return updatedTicket;
+      }
+      return t;
+    });
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+
+    if (channel && updatedTicket) {
+      channel.postMessage({ type: 'TICKET_UPDATED', id, ticket: updatedTicket });
+    }
+
+    if (typeof window !== 'undefined' && updatedTicket) {
+      window.dispatchEvent(new CustomEvent('vigilancia:ticket_updated', {
+        detail: { id, ticket: updatedTicket }
+      }));
+    }
+
+    try {
+      supabase.from('tickets').update({
+        title: fields.title,
+        description: fields.description,
+        priority: fields.priority,
+        status: fields.status,
+      }).eq('id', id).then(() => {}).catch(() => {});
+    } catch(e) {}
+
+    return updatedTicket;
+  } catch (e) {
+    return null;
+  }
+}
+
 export function deleteLocalTicket(id) {
   if (typeof window === 'undefined') return;
   try {
@@ -69,6 +113,12 @@ export function deleteLocalTicket(id) {
     if (channel) {
       channel.postMessage({ type: 'TICKET_DELETED', id });
     }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('vigilancia:ticket_deleted', { detail: { id } }));
+    }
+    try {
+      supabase.from('tickets').delete().eq('id', id).then(() => {}).catch(() => {});
+    } catch(e) {}
   } catch (e) {}
 }
 
@@ -150,7 +200,7 @@ export async function createTicket({ title, description, priority, branch, categ
   return ticketObj;
 }
 
-export function subscribeToTickets(onNewTicket, onStatusChange) {
+export function subscribeToTickets(onNewTicket, onStatusChange, onTicketUpdated) {
   const handlers = [];
 
   // BroadcastChannel
@@ -161,6 +211,13 @@ export function subscribeToTickets(onNewTicket, onStatusChange) {
       }
       if (event.data?.type === 'STATUS_CHANGED' && onStatusChange) {
         onStatusChange(event.data.id, event.data.status, event.data.ticket);
+      }
+      if (event.data?.type === 'TICKET_UPDATED' && (onTicketUpdated || onStatusChange)) {
+        if (onTicketUpdated) onTicketUpdated(event.data.ticket);
+        if (onStatusChange) onStatusChange(event.data.id, event.data.ticket.status, event.data.ticket);
+      }
+      if (event.data?.type === 'TICKET_DELETED' && onTicketUpdated) {
+        if (onTicketUpdated) onTicketUpdated({ id: event.data.id, _deleted: true });
       }
     };
     channel.addEventListener('message', bcHandler);
@@ -184,6 +241,14 @@ export function subscribeToTickets(onNewTicket, onStatusChange) {
     };
     window.addEventListener('vigilancia:status_changed', ceStatusHandler);
     handlers.push(() => window.removeEventListener('vigilancia:status_changed', ceStatusHandler));
+
+    const ceUpdateHandler = (event) => {
+      if (event.detail && onTicketUpdated) {
+        onTicketUpdated(event.detail.ticket);
+      }
+    };
+    window.addEventListener('vigilancia:ticket_updated', ceUpdateHandler);
+    handlers.push(() => window.removeEventListener('vigilancia:ticket_updated', ceUpdateHandler));
 
     // Storage Event (otra pestaña)
     const storageHandler = (e) => {
