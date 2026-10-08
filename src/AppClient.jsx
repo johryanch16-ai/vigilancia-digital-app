@@ -2,7 +2,7 @@
 import { useNavigate } from 'react-router-dom';
 import TicketForm from './TicketForm';
 import ClientPasswords from './ClientPasswords';
-import { LogOut, Ticket, Lock, UserCircle, ChevronDown, Building2, CheckCircle2, Clock, AlertCircle, ListOrdered, X } from 'lucide-react';
+import { LogOut, Ticket, Lock, UserCircle, ChevronDown, Building2, CheckCircle2, Clock, AlertCircle, ListOrdered, X, Camera, Download, Maximize2 } from 'lucide-react';
 import { subscribeToTickets, getLocalTickets } from './lib/ticketStorage';
 import { playSuccessChime } from './lib/notificationAudio';
 
@@ -15,6 +15,7 @@ function AppClient() {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [resolvedNotice, setResolvedNotice] = useState(null);
   const [myTickets, setMyTickets] = useState([]);
+  const [clientLightboxPhoto, setClientLightboxPhoto] = useState(null);
   
   const menuRef = useRef(null);
 
@@ -59,7 +60,7 @@ function AppClient() {
 
     const unsubscribe = subscribeToTickets(
       (newTicket) => {
-        // Si la sucursal envió un ticket, refrescar lista
+        // Si la sucursal envi un ticket, refrescar lista
         loadMyTickets();
       },
       (updatedId, newStatus, ticketObj) => {
@@ -79,7 +80,7 @@ function AppClient() {
             });
 
             if ("Notification" in window && Notification.permission === "granted") {
-              new Notification('✅ Incidencia Solucionada', {
+              new Notification('Incidencia Solucionada', {
                 body: `Tu reporte #${updatedId} ha sido resuelto por soporte.`,
                 icon: '/logo.jpg'
               });
@@ -106,16 +107,15 @@ function AppClient() {
   }, []);
 
   const handleLogout = () => {
-    if (isAdmin) {
-      navigate('/admin/tickets');
-    } else {
-      localStorage.removeItem('client_user');
-      localStorage.removeItem('user_role');
-      navigate('/');
+    localStorage.removeItem('client_user');
+    localStorage.removeItem('user_role');
+    if (!isAdmin) {
+      localStorage.removeItem('admin_user');
     }
+    navigate('/');
   };
 
-  const hasPasswords = (clientUser?.has_password_access && !clientUser?.branch) || isAdmin;
+  const hasPasswords = clientUser?.has_password_access;
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -142,7 +142,7 @@ function AppClient() {
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between gap-1">
               <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-800">
-                ¡Incidencia Resuelta!
+                Incidencia Resuelta!
               </span>
               <button 
                 onClick={() => setResolvedNotice(null)}
@@ -155,7 +155,7 @@ function AppClient() {
               #{resolvedNotice.id}: <span className="font-normal text-slate-200">{resolvedNotice.title}</span>
             </h4>
             <p className="text-xs text-emerald-300/90 mt-1">
-              El equipo de soporte técnico ha concluido y cerrado la atención de este caso.
+              El equipo de soporte tcnico ha concluido y cerrado la atencin de este caso.
             </p>
           </div>
         </div>
@@ -190,10 +190,10 @@ function AppClient() {
             </div>
           </div>
           
-          {/* Menu de Perfil y Navegación Sucursal */}
+          {/* Menu de Perfil y Navegacin */}
           <div className="relative w-full sm:w-auto flex items-center justify-end gap-2" ref={menuRef}>
             
-            {/* Botón para alternar a Historial de mis tickets */}
+            {/* Botn para alternar a Historial de mis tickets */}
             <button
               onClick={() => {
                 loadMyTickets();
@@ -214,7 +214,7 @@ function AppClient() {
                 {clientName.charAt(0).toUpperCase()}
               </div>
               <div className="text-left hidden sm:block">
-                <div className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Sucursal</div>
+                <div className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Cuenta Conectada</div>
                 <div className="text-xs font-bold text-white truncate max-w-[120px]">
                   {clientName}
                 </div>
@@ -226,7 +226,7 @@ function AppClient() {
             {isProfileMenuOpen && (
               <div className="absolute right-0 top-full mt-2 w-56 bg-[#0f172a] border border-slate-700 rounded-2xl shadow-2xl overflow-hidden z-50 animate-in slide-in-from-top-2">
                 <div className="p-3 border-b border-slate-800 bg-[#0a1128]/70">
-                  <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Sucursal Conectada</div>
+                  <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Cuenta Actual</div>
                   <div className="text-sm font-bold text-white flex items-center gap-1.5 mt-0.5">
                     <Building2 className="w-3.5 h-3.5 text-cyan-400" />
                     <span className="truncate">{clientName}</span>
@@ -263,7 +263,7 @@ function AppClient() {
                       }}
                       className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-colors ${activeView === 'passwords' ? 'bg-blue-900/30 text-blue-400' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}
                     >
-                      <Lock className="w-4 h-4" /> Mis Contraseñas
+                      <Lock className="w-4 h-4" /> Mis Contraseas
                     </button>
                   )}
                 </div>
@@ -273,7 +273,7 @@ function AppClient() {
                     onClick={handleLogout}
                     className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs sm:text-sm font-bold text-red-400 hover:bg-red-900/20 transition-colors"
                   >
-                    <span>{isAdmin ? 'Volver al Admin' : 'Cerrar Sesión'}</span>
+                    <span>{isAdmin ? 'Volver al Admin' : 'Cerrar Sesin'}</span>
                     <LogOut className="w-4 h-4" />
                   </button>
                 </div>
@@ -307,7 +307,7 @@ function AppClient() {
 
               {myTickets.length === 0 ? (
                 <div className="text-center py-12 text-slate-500 text-sm">
-                  Esta sucursal aún no ha registrado incidencias.
+                  Esta cuenta an no ha registrado incidencias.
                 </div>
               ) : (
                 <div className="divide-y divide-slate-800">
@@ -319,10 +319,18 @@ function AppClient() {
                           <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold ${getStatusBadge(ticket.status)}`}>
                             {ticket.status}
                           </span>
+                          {ticket.image && (
+                            <button
+                              onClick={() => setClientLightboxPhoto(ticket.image)}
+                              className="inline-flex items-center gap-1 text-[10px] font-bold text-cyan-300 bg-cyan-950/80 border border-cyan-800/80 px-2 py-0.5 rounded-full hover:bg-cyan-900 transition-colors"
+                            >
+                              <Camera className="w-3 h-3" /> Ver Foto
+                            </button>
+                          )}
                         </div>
                         <h4 className="text-sm font-semibold text-white mt-1">{ticket.title}</h4>
                         <p className="text-xs text-slate-400 line-clamp-1 mt-0.5">{ticket.description}</p>
-                        <div className="text-[11px] text-slate-500 mt-1">{ticket.date} · {ticket.category}</div>
+                        <div className="text-[11px] text-slate-500 mt-1">{ticket.date}  {ticket.category}</div>
                       </div>
 
                       <div className="text-right shrink-0">
@@ -332,7 +340,7 @@ function AppClient() {
                           </span>
                         ) : ticket.status === 'En Progreso' ? (
                           <span className="inline-flex items-center gap-1 text-xs font-bold text-blue-400 bg-blue-950/40 px-3 py-1.5 rounded-xl border border-blue-800">
-                            <Clock className="w-4 h-4" /> En Atención
+                            <Clock className="w-4 h-4" /> En Atencin
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 text-xs font-bold text-orange-400 bg-orange-950/40 px-3 py-1.5 rounded-xl border border-orange-800">
@@ -350,6 +358,32 @@ function AppClient() {
           )}
         </main>
       </div>
+
+      {/* Lightbox para cliente */}
+      {clientLightboxPhoto && (
+        <div 
+          className="fixed inset-0 z-[99999] bg-black/90 backdrop-blur-md flex items-center justify-center p-4"
+          onClick={() => setClientLightboxPhoto(null)}
+        >
+          <div className="relative max-w-4xl max-h-[90vh] bg-[#0f172a] rounded-2xl overflow-hidden border border-slate-700 shadow-2xl flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-[#0a1128]">
+              <span className="text-sm font-bold text-white flex items-center gap-2">
+                <Camera className="w-4 h-4 text-cyan-400" /> Foto Adjunta de la Incidencia
+              </span>
+              <button 
+                onClick={() => setClientLightboxPhoto(null)}
+                className="p-1 rounded-lg bg-slate-800 text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-2 flex items-center justify-center bg-black/60 overflow-auto max-h-[75vh]">
+              <img src={clientLightboxPhoto} alt="Evidencia completa" className="max-w-full max-h-[70vh] object-contain rounded-lg" />
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

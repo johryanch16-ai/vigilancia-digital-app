@@ -15,7 +15,10 @@ import {
   RefreshCw,
   ShieldCheck,
   Eye,
-  Filter
+  Filter,
+  Camera,
+  Download,
+  Maximize2
 } from 'lucide-react';
 import { supabase } from '../lib/supabase.js';
 import { getLocalTickets, updateLocalTicketStatus, deleteLocalTicket } from '../lib/ticketStorage.js';
@@ -25,6 +28,7 @@ export default function AdminBitacora() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all'); // 'all', 'resuelto', 'archivado'
   const [selectedTicket, setSelectedTicket] = useState(null);
+  const [lightboxImage, setLightboxImage] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
   const adminUser = typeof window !== 'undefined' ? localStorage.getItem('admin_user') : '';
 
@@ -38,34 +42,32 @@ export default function AdminBitacora() {
   };
 
   const fetchArchivedTickets = async () => {
-    // 1. Cargar tickets locales concluidos o archivados
-    const local = getLocalTickets().filter(t => t.status === 'Archivado' || t.status === 'Resuelto');
+    const local = getLocalTickets();
+    const localArchived = local.filter(t => t.status === 'Archivado' || t.status === 'Resuelto');
 
-    // 2. Intentar consultar en Supabase si está disponible
     try {
       const { data, error } = await supabase
         .from('tickets')
-        .select('*, zones(name), categories(name), equipos(name)')
+        .select('*, zones(name), categories(name)')
         .in('status', ['Archivado', 'Resuelto'])
         .order('created_at', { ascending: false });
 
       if (!error && data) {
         const mappedRemote = data.map(t => ({
           id: t.id ? t.id.toString() : 'TKT-' + Math.random().toString(36).substring(2, 6),
-          displayId: (t.id || '').toString(),
           title: t.title,
           description: t.description,
           status: t.status,
           priority: t.priority || 'Media',
           zone: t.zones?.name || t.zone || 'Sucursal',
           category: t.categories?.name || t.category || 'General',
-          equipo: t.equipos?.name || 'Ninguno',
           user: t.reporter_name || 'Sucursal',
+          image: t.image || null,
           date: new Date(t.created_at || Date.now()).toLocaleString(),
           rawDate: t.created_at
         }));
 
-        const combined = [...local];
+        const combined = [...localArchived];
         mappedRemote.forEach(rem => {
           if (!combined.some(c => c.id === rem.id)) {
             combined.push(rem);
@@ -74,49 +76,39 @@ export default function AdminBitacora() {
         setTickets(combined);
         return;
       }
-    } catch (e) {}
+    } catch (err) {}
 
-    setTickets(local);
+    setTickets(localArchived);
   };
 
   const handleRestore = async (id, e) => {
     if (e) e.stopPropagation();
-    if (window.confirm('¿Desea restaurar este ticket y devolverlo al Centro de Control activo?')) {
-      updateLocalTicketStatus(id, 'Abierto');
-      setTickets(prev => prev.filter(t => t.id !== id));
-      if (selectedTicket && selectedTicket.id === id) {
-        setSelectedTicket(null);
-      }
-      showToast(`Incidencia #${id} restaurada a estado Abierto.`);
+    updateLocalTicketStatus(id, 'Abierto');
+    setTickets(prev => prev.filter(t => t.id !== id));
+    if (selectedTicket && selectedTicket.id === id) {
+      setSelectedTicket(null);
     }
+    showToast(`Incidencia #${id} restaurada al tablero de casos activos.`);
   };
 
   const handleDeletePermanent = async (id, e) => {
     if (e) e.stopPropagation();
-    if (window.confirm('¿ATENCIÓN: Está seguro de eliminar permanentemente este registro del historial? Esta acción no se puede deshacer.')) {
+    if (window.confirm(`Desea purgar definitivamente la incidencia #${id} de la bitcora histrica?`)) {
       deleteLocalTicket(id);
       setTickets(prev => prev.filter(t => t.id !== id));
       if (selectedTicket && selectedTicket.id === id) {
         setSelectedTicket(null);
       }
-      try {
-        await supabase.from('tickets').delete().eq('id', id);
-      } catch (err) {}
       showToast(`Incidencia #${id} eliminada permanentemente.`);
     }
   };
 
   const getPriorityBadge = (priority) => {
     switch (priority) {
-      case 'Crítica':
-      case 'Critica':
-        return 'bg-red-500/20 text-red-400 border-red-500/40';
-      case 'Alta':
-        return 'bg-orange-500/20 text-orange-400 border-orange-500/40';
-      case 'Media':
-        return 'bg-blue-500/20 text-blue-400 border-blue-500/40';
-      default:
-        return 'bg-slate-500/20 text-slate-300 border-slate-500/40';
+      case 'Crtica': case 'Critica': return 'bg-red-950/60 text-red-400 border border-red-800';
+      case 'Alta': return 'bg-orange-950/60 text-orange-400 border border-orange-800';
+      case 'Media': return 'bg-blue-950/60 text-blue-400 border border-blue-800';
+      default: return 'bg-slate-800 text-slate-300 border border-slate-700';
     }
   };
 
@@ -150,7 +142,7 @@ export default function AdminBitacora() {
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight flex items-center gap-2.5">
             <Archive className="w-6 h-6 sm:w-7 sm:h-7 text-cyan-400" />
-            Bitácora de Incidencias Concluidas y Archivo
+            Bitcora de Incidencias Concluidas y Archivo
           </h1>
           <p className="mt-1 text-xs sm:text-sm text-slate-400 font-medium">
             Historial de casos resueltos y archivados por el equipo administrativo ({adminUser || 'Johryan & Johnny'}).
@@ -176,27 +168,27 @@ export default function AdminBitacora() {
             type="text" 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Buscar por código #INC, sucursal o asunto..." 
+            placeholder="Buscar por cdigo #INC, cuenta o asunto..." 
             className="block w-full pl-10 pr-4 py-2.5 border border-slate-700 rounded-xl bg-[#0f172a] text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-xs sm:text-sm"
           />
         </div>
 
-        <div className="flex gap-2 flex-wrap text-xs sm:text-sm">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
           <button
             onClick={() => setFilterType('all')}
-            className={`px-3.5 py-2 rounded-xl font-bold transition-all whitespace-nowrap ${filterType === 'all' ? 'bg-cyan-600 text-white shadow-md' : 'bg-[#0f172a] text-slate-400 border border-slate-800 hover:text-white'}`}
+            className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${filterType === 'all' ? 'bg-cyan-600 text-white shadow-md' : 'bg-[#0f172a] text-slate-400 border border-slate-800 hover:text-white'}`}
           >
             Todos ({tickets.length})
           </button>
           <button
             onClick={() => setFilterType('resuelto')}
-            className={`px-3.5 py-2 rounded-xl font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${filterType === 'resuelto' ? 'bg-emerald-600 text-white shadow-md' : 'bg-[#0f172a] text-slate-400 border border-slate-800 hover:text-white'}`}
+            className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${filterType === 'resuelto' ? 'bg-emerald-600 text-white shadow-md' : 'bg-[#0f172a] text-slate-400 border border-slate-800 hover:text-white'}`}
           >
-            <CheckCircle2 className="w-3.5 h-3.5" /> Resueltos ({tickets.filter(t => t.status === 'Resuelto').length})
+            <CheckCircle2 className="w-3.5 h-3.5" /> Concluidos ({tickets.filter(t => t.status === 'Resuelto').length})
           </button>
           <button
             onClick={() => setFilterType('archivado')}
-            className={`px-3.5 py-2 rounded-xl font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${filterType === 'archivado' ? 'bg-slate-700 text-white shadow-md' : 'bg-[#0f172a] text-slate-400 border border-slate-800 hover:text-white'}`}
+            className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${filterType === 'archivado' ? 'bg-slate-700 text-white shadow-md' : 'bg-[#0f172a] text-slate-400 border border-slate-800 hover:text-white'}`}
           >
             <Archive className="w-3.5 h-3.5" /> Archivados ({tickets.filter(t => t.status === 'Archivado').length})
           </button>
@@ -211,8 +203,8 @@ export default function AdminBitacora() {
           <table className="min-w-full divide-y divide-slate-800">
             <thead className="bg-[#0a1128]/70">
               <tr>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-widest">Código / Asunto</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-widest">Punto de Operación</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-widest">Cdigo / Asunto</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-widest">Punto de Operacin</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-widest">Estado</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-widest">Severidad</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-widest">Fecha Registro</th>
@@ -229,7 +221,14 @@ export default function AdminBitacora() {
                   <td className="px-6 py-4">
                     <div className="font-mono font-bold text-cyan-400 text-sm">#{ticket.id}</div>
                     <div className="text-white text-sm font-semibold mt-0.5 max-w-[280px] truncate">{ticket.title}</div>
-                    <div className="text-xs text-slate-500">{ticket.category}</div>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-xs text-slate-500">{ticket.category}</span>
+                      {ticket.image && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-cyan-300 bg-cyan-950/80 border border-cyan-800/80 px-2 py-0.5 rounded-full">
+                          <Camera className="w-3 h-3" /> Foto
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-1.5 text-sm font-semibold text-slate-200">
@@ -280,7 +279,7 @@ export default function AdminBitacora() {
               {filteredTickets.length === 0 && (
                 <tr>
                   <td colSpan="6" className="px-6 py-12 text-center text-slate-400 font-medium">
-                    No se encontraron incidencias en el archivo histórico.
+                    No se encontraron incidencias en el archivo histrico.
                   </td>
                 </tr>
               )}
@@ -307,6 +306,11 @@ export default function AdminBitacora() {
                     ) : (
                       <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-slate-800 text-slate-400 border border-slate-700">
                         Archivado
+                      </span>
+                    )}
+                    {ticket.image && (
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-950/80 text-cyan-400 border border-cyan-800">
+                        Foto
                       </span>
                     )}
                   </div>
@@ -344,13 +348,13 @@ export default function AdminBitacora() {
           ))}
           {filteredTickets.length === 0 && (
             <div className="p-8 text-center text-slate-400 font-medium text-sm">
-              No se encontraron incidencias en el archivo histórico.
+              No se encontraron incidencias en el archivo histrico.
             </div>
           )}
         </div>
       </div>
 
-      {/* Modal / Slide-over para Detalle de Incidencia Histórica */}
+      {/* Modal / Slide-over para Detalle de Incidencia Histrica */}
       {selectedTicket && typeof document !== 'undefined' && createPortal(
         <div className="fixed inset-0 z-[9999] overflow-hidden flex justify-end" role="dialog" aria-modal="true">
           <div 
@@ -403,7 +407,7 @@ export default function AdminBitacora() {
                 <div className="p-3.5 bg-[#0f172a] rounded-xl border border-slate-800">
                   <div className="flex items-center gap-2 text-blue-400 mb-1">
                     <Tag className="w-4 h-4" />
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Línea de Servicio</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Lnea de Servicio</span>
                   </div>
                   <p className="text-xs sm:text-sm font-semibold text-slate-200 truncate">{selectedTicket.category}</p>
                 </div>
@@ -425,7 +429,7 @@ export default function AdminBitacora() {
                 </div>
               </div>
 
-              {/* Bitácora de Observaciones */}
+              {/* Bitcora de Observaciones */}
               <div>
                 <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-2">
                   <AlignLeft className="w-4 h-4 text-cyan-400" /> Detalle Registrado
@@ -434,6 +438,38 @@ export default function AdminBitacora() {
                   {selectedTicket.description}
                 </div>
               </div>
+
+              {/* Evidencia Fotogrfica si existe */}
+              {selectedTicket.image && (
+                <div>
+                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <Camera className="w-4 h-4 text-cyan-400" /> Evidencia Fotogrfica
+                    </span>
+                  </h4>
+                  <div className="bg-[#0f172a] rounded-xl border border-slate-800 p-3 space-y-2">
+                    <div 
+                      onClick={() => setLightboxImage(selectedTicket.image)}
+                      className="relative max-h-60 w-full rounded-lg overflow-hidden bg-black/60 flex items-center justify-center cursor-pointer group"
+                    >
+                      <img src={selectedTicket.image} alt="Evidencia" className="max-h-60 object-contain group-hover:scale-105 transition-transform" />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white text-xs font-bold gap-1.5">
+                        <Maximize2 className="w-4 h-4 text-cyan-300" /> Ver en grande
+                      </div>
+                    </div>
+                    <div className="flex justify-end pt-1">
+                      <a
+                        href={selectedTicket.image}
+                        download={`evidencia_${selectedTicket.id}.jpg`}
+                        className="px-2.5 py-1 bg-cyan-950 text-cyan-300 border border-cyan-800 rounded-lg text-xs font-bold flex items-center gap-1.5"
+                      >
+                        <Download className="w-3.5 h-3.5" /> Descargar
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              )}
+
             </div>
 
             {/* Modal Footer */}
@@ -450,6 +486,32 @@ export default function AdminBitacora() {
               >
                 Cerrar Detalle
               </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Modal Lightbox */}
+      {lightboxImage && typeof document !== 'undefined' && createPortal(
+        <div 
+          className="fixed inset-0 z-[99999] bg-black/90 backdrop-blur-md flex items-center justify-center p-4"
+          onClick={() => setLightboxImage(null)}
+        >
+          <div className="relative max-w-5xl max-h-[92vh] w-full bg-[#0f172a] rounded-2xl overflow-hidden border border-slate-700 shadow-2xl flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-[#0a1128]">
+              <span className="text-sm font-bold text-white flex items-center gap-2">
+                <Camera className="w-4 h-4 text-cyan-400" /> Evidencia Fotogrfica
+              </span>
+              <button 
+                onClick={() => setLightboxImage(null)}
+                className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-3 flex items-center justify-center bg-black/70 overflow-auto max-h-[80vh]">
+              <img src={lightboxImage} alt="Evidencia completa" className="max-w-full max-h-[78vh] object-contain rounded-lg" />
             </div>
           </div>
         </div>,

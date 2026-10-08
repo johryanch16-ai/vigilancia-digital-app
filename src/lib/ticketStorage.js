@@ -3,7 +3,7 @@
 const STORAGE_KEY = 'vigilancia_local_tickets';
 const CHANNEL_NAME = 'vigilancia_tickets_broadcast';
 
-// Obtener canal de difusión entre pestañas y ventanas
+// Obtener canal de difusin entre pestaas y ventanas
 const channel = typeof window !== 'undefined' && 'BroadcastChannel' in window
   ? new BroadcastChannel(CHANNEL_NAME)
   : null;
@@ -55,8 +55,10 @@ export function updateLocalTicketStatus(id, newStatus) {
       }));
     }
 
-    // Actualizar también en Supabase si está disponible
-    supabase.from('tickets').update({ status: newStatus }).eq('id', id).then(() => {}).catch(() => {});
+    // Actualizar tambin en Supabase si est disponible
+    try {
+      supabase.from('tickets').update({ status: newStatus }).eq('id', id).then(() => {}).catch(() => {});
+    } catch(e) {}
 
     return updatedTicket;
   } catch (e) {
@@ -64,7 +66,7 @@ export function updateLocalTicketStatus(id, newStatus) {
   }
 }
 
-// Edición completa de datos de ticket por el administrador (corregir errores de envío)
+// Edicin completa de datos de ticket por el administrador (corregir errores de envo)
 export function updateTicketData(id, fields) {
   if (typeof window === 'undefined') return null;
   try {
@@ -149,7 +151,7 @@ export function getNextTicketNumber() {
   return `INC-${year}-0001`;
 }
 
-export async function createTicket({ title, description, priority, branch, category, reporterName }) {
+export async function createTicket({ title, description, priority, branch, category, reporterName, image, imageName }) {
   const generatedId = getNextTicketNumber();
   const nowIso = new Date().toISOString();
   const displayDate = new Date().toLocaleString();
@@ -165,6 +167,8 @@ export async function createTicket({ title, description, priority, branch, categ
     category: category || 'General',
     user: reporterName || branch || 'Sucursal',
     reporter_name: reporterName || branch || 'Sucursal',
+    image: image || null,
+    image_name: imageName || null,
     date: displayDate,
     rawDate: nowIso,
     created_at: nowIso
@@ -250,7 +254,7 @@ export function subscribeToTickets(onNewTicket, onStatusChange, onTicketUpdated)
     window.addEventListener('vigilancia:ticket_updated', ceUpdateHandler);
     handlers.push(() => window.removeEventListener('vigilancia:ticket_updated', ceUpdateHandler));
 
-    // Storage Event (otra pestaña)
+    // Storage Event (otra pestaa)
     const storageHandler = (e) => {
       if (e.key === STORAGE_KEY && e.newValue) {
         try {
@@ -265,7 +269,7 @@ export function subscribeToTickets(onNewTicket, onStatusChange, onTicketUpdated)
     handlers.push(() => window.removeEventListener('storage', storageHandler));
   }
 
-  // Supabase Realtime (si está en línea)
+  // Supabase Realtime (si est en lnea)
   try {
     const subChannel = supabase.channel('realtime:tickets_shared')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tickets' }, (payload) => {
@@ -285,6 +289,7 @@ export function subscribeToTickets(onNewTicket, onStatusChange, onTicketUpdated)
             zone: payload.new.zone || 'Sucursal',
             category: payload.new.category || 'General',
             user: payload.new.reporter_name || payload.new.client_name || 'Sucursal',
+            image: payload.new.image || null,
             date: new Date(payload.new.created_at || Date.now()).toLocaleString(),
             rawDate: payload.new.created_at || new Date().toISOString()
           };

@@ -21,7 +21,10 @@ import {
   EyeOff,
   Building2,
   RefreshCw,
-  Check
+  Check,
+  Camera,
+  Download,
+  Maximize2
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { decryptPassword } from '../lib/crypto';
@@ -31,6 +34,7 @@ export default function AdminDashboard() {
   const [tickets, setTickets] = useState([]);
   const [filter, setFilter] = useState('all'); // all, open, critical, archived
   const [selectedTicket, setSelectedTicket] = useState(null);
+  const [lightboxImage, setLightboxImage] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
   const adminUser = typeof window !== 'undefined' ? localStorage.getItem('admin_user') : '';
 
@@ -51,7 +55,8 @@ export default function AdminDashboard() {
           if (exists) return prev;
           return [newTicket, ...prev];
         });
-        showToast(`🚨 Nuevo ticket recibido de: ${newTicket.zone || newTicket.user}`);
+        const hasImgText = newTicket.image ? ' (con foto)' : '';
+        showToast(`Nuevo ticket recibido de: ${newTicket.zone || newTicket.user}${hasImgText}`);
       },
       (updatedId, newStatus) => {
         setTickets(prev => prev.map(t => t.id === updatedId ? { ...t, status: newStatus } : t));
@@ -72,7 +77,7 @@ export default function AdminDashboard() {
     // 1. Obtener tickets locales inmediatos
     const local = getLocalTickets();
     
-    // 2. Intentar combinar con Supabase si está disponible
+    // 2. Intentar combinar con Supabase si est disponible
     try {
       const { data, error } = await supabase
         .from('tickets')
@@ -91,6 +96,7 @@ export default function AdminDashboard() {
           category: t.categories?.name || t.category || 'General',
           equipo: t.equipos?.name || 'Ninguno',
           user: t.reporter_name || 'Sucursal',
+          image: t.image || null,
           date: new Date(t.created_at || Date.now()).toLocaleString(),
           rawDate: t.created_at
         }));
@@ -98,23 +104,22 @@ export default function AdminDashboard() {
         // Combinar sin duplicados
         const combined = [...local];
         mappedRemote.forEach(rem => {
-          if (!combined.some(c => c.id === rem.id || c.title === rem.title && c.rawDate === rem.rawDate)) {
+          if (!combined.some(c => c.id === rem.id)) {
             combined.push(rem);
           }
         });
         setTickets(combined);
         return;
       }
-    } catch (e) {
-      console.warn('Conexión con Supabase no disponible. Usando tickets locales en tiempo real.');
-    }
+    } catch (err) {}
 
+    // Fallback con memoria local
     setTickets(local);
   };
 
   const getPriorityColor = (priority) => {
     switch (priority) {
-      case 'Crítica':
+      case 'Crtica':
       case 'Critica':
         return 'bg-red-950/40 text-red-400 border border-red-800 font-bold';
       case 'Alta':
@@ -128,7 +133,7 @@ export default function AdminDashboard() {
 
   const getPriorityBadge = (priority) => {
     switch (priority) {
-      case 'Crítica':
+      case 'Crtica':
       case 'Critica':
         return 'bg-red-500/20 text-red-400 border-red-500/40';
       case 'Alta':
@@ -155,7 +160,7 @@ export default function AdminDashboard() {
     if (filter === 'resolved') return t.status === 'Resuelto';
     if (filter === 'progress') return t.status === 'En Progreso';
     if (filter === 'open') return t.status === 'Abierto';
-    if (filter === 'critical') return (t.priority === 'Crítica' || t.priority === 'Critica') && t.status !== 'Archivado';
+    if (filter === 'critical') return (t.priority === 'Crtica' || t.priority === 'Critica') && t.status !== 'Archivado';
     return t.status !== 'Archivado'; // 'all'
   });
 
@@ -174,65 +179,9 @@ export default function AdminDashboard() {
 
   const handleDeleteTicket = async (id, e) => {
     if (e) e.stopPropagation();
-    if (window.confirm('¿Desea enviar este ticket al archivo?')) {
+    if (window.confirm('Desea enviar este ticket al archivo?')) {
       handleUpdateStatus(id, 'Archivado');
     }
-  };
-
-  const handleOpenVault = async () => {
-    if (!selectedTicket || !selectedTicket.user) return;
-    setLoadingVault(true);
-    setVaultError(null);
-    setVaultPasswords(null);
-    setVisiblePasswords({});
-
-    try {
-      const { data: users, error: userError } = await supabase
-        .from('users_client')
-        .select('*')
-        .ilike('name', selectedTicket.user)
-        .limit(1);
-
-      if (userError || !users || users.length === 0) {
-        setVaultError("Esta cuenta de sucursal opera únicamente en modo reporte de tickets.");
-        setLoadingVault(false);
-        return;
-      }
-
-      const client = users[0];
-      if (!client.has_password_access) {
-        setVaultError("Esta sucursal no tiene bóveda de contraseñas asignada.");
-        setLoadingVault(false);
-        return;
-      }
-
-      const { data: passwords, error: passError } = await supabase
-        .from('user_passwords')
-        .select('*')
-        .eq('user_id', client.id)
-        .order('created_at', { ascending: false });
-
-      if (passError || !passwords || passwords.length === 0) {
-        setVaultPasswords([]);
-      } else {
-        const decrypted = passwords.map(p => {
-          let plain = "Error de desencriptado";
-          try {
-            plain = decryptPassword(p.encrypted_password);
-          } catch(e) {}
-          return { ...p, decrypted: plain };
-        });
-        setVaultPasswords(decrypted);
-      }
-    } catch (error) {
-      setVaultError("No fue posible consultar la bóveda en este momento.");
-    } finally {
-      setLoadingVault(false);
-    }
-  };
-
-  const togglePasswordVisibility = (id) => {
-    setVisiblePasswords(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
   return (
@@ -265,7 +214,7 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* Filtros rápidos */}
+      {/* Filtros rpidos */}
       <div className="flex gap-2 mb-6 flex-wrap text-xs sm:text-sm">
         <button 
           onClick={() => setFilter('all')} 
@@ -295,7 +244,7 @@ export default function AdminDashboard() {
           onClick={() => setFilter('critical')} 
           className={`px-3.5 py-2 rounded-xl font-bold whitespace-nowrap transition-all ${filter === 'critical' ? 'bg-red-600 text-white shadow-lg' : 'bg-[#0f172a] text-slate-400 border border-slate-800 hover:text-white'}`}
         >
-          Críticos ({tickets.filter(t => (t.priority === 'Crítica' || t.priority === 'Critica') && t.status !== 'Archivado').length})
+          Crticos ({tickets.filter(t => (t.priority === 'Crtica' || t.priority === 'Critica') && t.status !== 'Archivado').length})
         </button>
         <button 
           onClick={() => setFilter('archived')} 
@@ -314,7 +263,7 @@ export default function AdminDashboard() {
             <thead className="bg-[#0a1128]/70">
               <tr>
                 <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-widest">ID / Incidencia</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-widest">Punto de Operación</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-widest">Punto de Operacin</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-widest">Severidad</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-widest">Estado</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-widest">Fecha y Hora</th>
@@ -331,7 +280,14 @@ export default function AdminDashboard() {
                   <td className="px-6 py-4">
                     <div className="font-bold text-white text-sm">#{ticket.displayId || ticket.id}</div>
                     <div className="text-slate-300 text-sm mt-0.5 font-medium truncate max-w-[260px]">{ticket.title}</div>
-                    <div className="text-xs text-slate-500 mt-0.5">{ticket.category}</div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-xs text-slate-500">{ticket.category}</span>
+                      {ticket.image && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-cyan-300 bg-cyan-950/80 border border-cyan-800/80 px-2 py-0.5 rounded-full">
+                          <Camera className="w-3 h-3" /> Con foto
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-1.5 text-sm font-semibold text-cyan-400">
@@ -385,7 +341,7 @@ export default function AdminDashboard() {
           </table>
         </div>
 
-        {/* Vista Móvil / Tablet en Tarjetas */}
+        {/* Vista Mvil / Tablet en Tarjetas */}
         <div className="lg:hidden divide-y divide-slate-800">
           {filteredTickets.map((ticket) => (
             <div 
@@ -400,6 +356,11 @@ export default function AdminDashboard() {
                     <span className={`px-2 py-0.5 rounded-md text-[11px] ${getPriorityColor(ticket.priority)}`}>
                       {ticket.priority}
                     </span>
+                    {ticket.image && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-cyan-300 bg-cyan-950/80 border border-cyan-800/80 px-2 py-0.5 rounded-full">
+                        <Camera className="w-3 h-3" /> Foto
+                      </span>
+                    )}
                   </div>
                   <h3 className="font-bold text-white text-sm sm:text-base mt-1 line-clamp-2">
                     {ticket.title}
@@ -485,7 +446,7 @@ export default function AdminDashboard() {
             {/* Modal Content */}
             <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6">
               
-              {/* Botones de acción rápida sobre el estado */}
+              {/* Botones de accin rpida sobre el estado */}
               <div className="p-3 bg-[#0f172a] rounded-xl border border-slate-800">
                 <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
                   Cambiar Estado de la Incidencia:
@@ -516,7 +477,7 @@ export default function AdminDashboard() {
                 <div className="p-3.5 bg-[#0f172a] rounded-xl border border-slate-800">
                   <div className="flex items-center gap-2 text-blue-400 mb-1">
                     <Tag className="w-4 h-4" />
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Línea de Servicio</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Lnea de Servicio</span>
                   </div>
                   <p className="text-xs sm:text-sm font-semibold text-slate-200 truncate">{selectedTicket.category}</p>
                 </div>
@@ -538,7 +499,7 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              {/* Bitácora de Observaciones */}
+              {/* Bitcora de Observaciones */}
               <div>
                 <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-2">
                   <AlignLeft className="w-4 h-4 text-cyan-400" /> Detalle y Observaciones
@@ -546,6 +507,62 @@ export default function AdminDashboard() {
                 <div className="bg-[#0f172a] p-4 sm:p-5 rounded-xl border border-slate-800 text-sm text-slate-200 leading-relaxed whitespace-pre-wrap font-sans">
                   {selectedTicket.description}
                 </div>
+              </div>
+
+              {/* Evidencia Fotogrfica / Imagen Adjunta */}
+              <div>
+                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2.5 flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <Camera className="w-4 h-4 text-cyan-400" /> Evidencia Fotogrfica Adjunta
+                  </span>
+                  {selectedTicket.image && (
+                    <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/80 border border-cyan-800/60 px-2 py-0.5 rounded-full">
+                      {selectedTicket.image_name || 'Archivo adjunto'}
+                    </span>
+                  )}
+                </h4>
+                {selectedTicket.image ? (
+                  <div className="bg-[#0f172a] rounded-2xl border border-slate-800 p-3.5 overflow-hidden space-y-3 shadow-inner">
+                    <div 
+                      onClick={() => setLightboxImage(selectedTicket.image)}
+                      className="relative max-h-72 w-full rounded-xl overflow-hidden bg-black/60 flex items-center justify-center cursor-pointer group border border-slate-700/60"
+                      title="Clic para ver en pantalla completa"
+                    >
+                      <img 
+                        src={selectedTicket.image} 
+                        alt="Evidencia fotogrfica" 
+                        className="max-h-72 w-full object-contain group-hover:scale-105 transition-transform duration-200" 
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white gap-2 font-bold text-xs">
+                        <Maximize2 className="w-4 h-4 text-cyan-300" /> Ampliar Imagen
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
+                      <span>Adjuntada por la sucursal/usuario</span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setLightboxImage(selectedTicket.image)}
+                          className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-cyan-300 rounded-lg font-semibold flex items-center gap-1.5 transition-colors border border-slate-700"
+                        >
+                          <Maximize2 className="w-3.5 h-3.5" /> Ampliar
+                        </button>
+                        <a
+                          href={selectedTicket.image}
+                          download={`evidencia_${selectedTicket.id}.jpg`}
+                          className="px-2.5 py-1.5 bg-cyan-950 hover:bg-cyan-900/60 text-cyan-300 border border-cyan-800 rounded-lg font-semibold flex items-center gap-1.5 transition-colors"
+                        >
+                          <Download className="w-3.5 h-3.5" /> Descargar
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-[#0f172a] p-4 rounded-xl border border-slate-800/80 text-xs text-slate-500 italic flex items-center gap-2">
+                    <Camera className="w-4 h-4 text-slate-600" />
+                    <span>No se adjuntaron fotografas para esta incidencia.</span>
+                  </div>
+                )}
               </div>
 
             </div>
@@ -567,6 +584,41 @@ export default function AdminDashboard() {
               >
                 Cerrar Detalle
               </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Modal Lightbox para Ampliar Imagen en Alta Resolucin */}
+      {lightboxImage && typeof document !== 'undefined' && createPortal(
+        <div 
+          className="fixed inset-0 z-[99999] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in"
+          onClick={() => setLightboxImage(null)}
+        >
+          <div className="relative max-w-5xl max-h-[92vh] w-full bg-[#0f172a] rounded-2xl overflow-hidden border border-slate-700 shadow-2xl flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-[#0a1128]">
+              <span className="text-sm font-bold text-white flex items-center gap-2">
+                <Camera className="w-4 h-4 text-cyan-400" /> Evidencia Fotogrfica en Alta Resolucin
+              </span>
+              <div className="flex items-center gap-2">
+                <a
+                  href={lightboxImage}
+                  download="evidencia.jpg"
+                  className="px-3 py-1.5 bg-cyan-950 hover:bg-cyan-900 text-cyan-300 border border-cyan-800 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors"
+                >
+                  <Download className="w-3.5 h-3.5" /> Descargar
+                </a>
+                <button 
+                  onClick={() => setLightboxImage(null)}
+                  className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            <div className="p-3 flex items-center justify-center bg-black/70 overflow-auto max-h-[80vh]">
+              <img src={lightboxImage} alt="Evidencia completa" className="max-w-full max-h-[78vh] object-contain rounded-lg" />
             </div>
           </div>
         </div>,
