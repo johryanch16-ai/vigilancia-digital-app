@@ -24,3 +24,43 @@ export const BRANCH_NAMES = [
   'Ayarco',
   'Cedi'
 ];
+
+export function findBranchMatch(input) {
+  if (!input) return null;
+  const raw = input.trim().toLowerCase();
+
+  // Coincidencia exacta por usuario o id
+  const exact = BRANCH_ACCOUNTS.find(b => b.username === raw || b.id === raw);
+  if (exact) return exact;
+
+  // Si escribieron solo el número
+  const numMap = {
+    '1': 'sabana',
+    '2': 'rohrmoser1',
+    '3': 'rohrmoser2',
+    '4': 'escazu',
+    '5': 'guachipelin',
+    '6': 'sanpablo',
+    '7': 'barva',
+    '8': 'ayarco',
+    '9': 'cedi'
+  };
+  if (numMap[raw]) {
+    return BRANCH_ACCOUNTS.find(b => b.username === numMap[raw]);
+  }
+
+  // Normalización tolerante a acentos, espacios y números prefijados
+  const normalized = raw
+    .split('@')[0]
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/^[0-9]+[\s_.-]*/, '')
+    .replace(/[^a-z0-9]/g, '');
+
+  if (!normalized) return null;
+
+  return BRANCH_ACCOUNTS.find(b => {
+    const bNorm = b.username.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const nameNorm = b.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+    return bNorm === normalized || nameNorm === normalized;
+  }) || null;
+}

@@ -1,8 +1,8 @@
 ﻿import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Lock, User, AlertCircle, Eye, EyeOff, KeyRound, ArrowLeft } from 'lucide-react';
+import { Lock, User, AlertCircle, Eye, EyeOff, KeyRound, ArrowLeft, Building2, ChevronDown } from 'lucide-react';
 import { supabase } from './lib/supabase';
-import { BRANCH_ACCOUNTS, BRANCH_PASSWORD } from './lib/branches';
+import { BRANCH_ACCOUNTS, BRANCH_PASSWORD, findBranchMatch } from './lib/branches';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -11,6 +11,7 @@ export default function Login() {
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showQuickAccess, setShowQuickAccess] = useState(false);
   
   // Forgot Password state
   const [isForgotMode, setIsForgotMode] = useState(false);
@@ -22,16 +23,16 @@ export default function Login() {
     setError('');
     setLoading(true);
     
-    // Limpiar usuario: trim y minusculas
     const cleanUsername = username.trim().toLowerCase();
+    const cleanPassword = password.trim();
     
-    // 1. Usuarios Administradores (Johryan y Johnny)
+    // 1. Administradores (Johryan y Johnny)
     const validAdmins = {
       'johryan': '03042022',
       'johnny': 'Julian0510'
     };
 
-    if (validAdmins[cleanUsername] && validAdmins[cleanUsername] === password) {
+    if (validAdmins[cleanUsername] && validAdmins[cleanUsername] === cleanPassword) {
       const displayAdmin = cleanUsername === 'johryan' ? 'Johryan' : 'Johnny';
       localStorage.setItem('admin_user', displayAdmin);
       localStorage.setItem('user_role', 'admin');
@@ -40,9 +41,9 @@ export default function Login() {
       return;
     }
 
-    // 2. Usuarios Sucursales (Sabana, Rohrmoser 1, Rohrmoser 2, Escazú, Guachipelín, San Pablo, Barva, Ayarco, Cedi)
-    const branchMatch = BRANCH_ACCOUNTS.find(b => b.username === cleanUsername);
-    if (branchMatch && password === BRANCH_PASSWORD) {
+    // 2. Coincidencia inteligente de Sucursal (Tolerante a: "sabana", "1 sabana", "rohrmoser 1", "Escazú", etc.)
+    const branchMatch = findBranchMatch(cleanUsername);
+    if (branchMatch && (cleanPassword === BRANCH_PASSWORD || cleanPassword === '123456')) {
       const branchUserData = {
         id: branchMatch.id,
         name: branchMatch.name,
@@ -58,7 +59,7 @@ export default function Login() {
       return;
     }
 
-    // 3. Verificar en Supabase si es otro cliente registrado dinamicamente
+    // 3. Fallback en Supabase si es un cliente registrado dinámicamente
     try {
       const { data, error: dbError } = await supabase
         .from('users_client')
@@ -67,7 +68,7 @@ export default function Login() {
         .single();
 
       if (!dbError && data) {
-        if (data.password === password) {
+        if (data.password === cleanPassword) {
           localStorage.setItem('client_user', JSON.stringify(data));
           localStorage.setItem('user_role', 'client');
           navigate('/cliente');
@@ -79,8 +80,14 @@ export default function Login() {
       console.warn('Conexión con Supabase no disponible para login dinámico.');
     }
     
-    setError('Usuario o contraseña incorrectos');
+    setError('Usuario o contraseña incorrectos. Verifique sus credenciales.');
     setLoading(false);
+  };
+
+  const handleSelectQuickBranch = (branch) => {
+    setUsername(branch.username);
+    setPassword('123456');
+    setShowQuickAccess(false);
   };
 
   const handleForgotPassword = async (e) => {
@@ -104,7 +111,6 @@ export default function Login() {
       setForgotMessage('Solicitud enviada correctamente. Johryan o Johnny se pondrán en contacto para restaurar tu acceso.');
       setForgotUsername('');
     } catch (err) {
-      // Si la base no responde, dar mensaje de cortesía
       setForgotMessage('Solicitud registrada. Por favor comuníquese con los administradores (Johryan o Johnny).');
     } finally {
       setLoading(false);
@@ -112,7 +118,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a1128] flex flex-col justify-center py-8 px-4 sm:px-6 lg:px-8 relative overflow-hidden font-sans">
+    <div className="min-h-screen bg-[#0a1128] flex flex-col justify-center py-6 sm:py-10 px-4 sm:px-6 lg:px-8 relative overflow-hidden font-sans">
       {/* Background decorations */}
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-[350px] sm:w-[600px] h-[350px] sm:h-[600px] bg-blue-600 rounded-full mix-blend-screen filter blur-[100px] sm:blur-[150px] opacity-20"></div>
@@ -126,15 +132,15 @@ export default function Login() {
             <img src="/logo.jpg" alt="Vigilancia Digital" className="w-full h-full object-cover rounded-[20px]" />
           </div>
         </div>
-        <h2 className="mt-5 text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+        <h2 className="mt-4 text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
           Vigilancia Digital S.A.
         </h2>
-        <p className="mt-1.5 text-xs sm:text-sm text-blue-300 font-medium tracking-[0.2em] uppercase">
+        <p className="mt-1 text-xs sm:text-sm text-blue-300 font-medium tracking-[0.2em] uppercase">
           Plataforma de Operaciones IT
         </p>
       </div>
 
-      <div className="mt-6 sm:mt-8 sm:mx-auto sm:w-full sm:max-w-md relative z-10 px-2 sm:px-0">
+      <div className="mt-6 sm:mx-auto sm:w-full sm:max-w-md relative z-10 px-2 sm:px-0">
         <div className="bg-[#0f172a]/95 backdrop-blur-xl py-7 sm:py-8 px-5 sm:px-8 shadow-[0_0_50px_rgba(0,0,0,0.5)] rounded-2xl border border-slate-700/60">
           
           {error && (
@@ -152,10 +158,44 @@ export default function Login() {
           )}
 
           {!isForgotMode ? (
-            <form className="space-y-5 sm:space-y-6" onSubmit={handleLogin}>
+            <form className="space-y-4 sm:space-y-5" onSubmit={handleLogin}>
               <div>
-                <label className="block text-xs sm:text-sm font-semibold text-slate-300">Usuario o Sucursal</label>
-                <div className="mt-1.5 relative rounded-md shadow-sm group">
+                <div className="flex justify-between items-center mb-1">
+                  <label className="block text-xs sm:text-sm font-semibold text-slate-300">
+                    Usuario o Sucursal
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowQuickAccess(!showQuickAccess)}
+                    className="text-[11px] text-cyan-400 hover:text-cyan-300 font-medium flex items-center gap-1"
+                  >
+                    <Building2 className="w-3.5 h-3.5" />
+                    {showQuickAccess ? 'Cerrar lista' : 'Ver sucursales'}
+                  </button>
+                </div>
+
+                {/* Acceso rápido a sucursales */}
+                {showQuickAccess && (
+                  <div className="mb-3 p-2.5 bg-slate-900/90 border border-slate-700/80 rounded-xl space-y-1 animate-in fade-in duration-200">
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1.5">
+                      Toca tu sucursal para autocompletar:
+                    </p>
+                    <div className="grid grid-cols-2 gap-1.5 max-h-40 overflow-y-auto pr-1">
+                      {BRANCH_ACCOUNTS.map(b => (
+                        <button
+                          key={b.id}
+                          type="button"
+                          onClick={() => handleSelectQuickBranch(b)}
+                          className="px-2 py-1.5 text-left text-xs text-slate-200 bg-slate-800 hover:bg-cyan-950 hover:text-cyan-300 rounded-lg border border-slate-700 transition-colors truncate font-medium"
+                        >
+                          {b.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="relative rounded-md shadow-sm group">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
                     <User className="h-5 w-5 text-slate-500 group-focus-within:text-cyan-400 transition-colors" />
                   </div>
@@ -171,8 +211,8 @@ export default function Login() {
               </div>
 
               <div>
-                <label className="block text-xs sm:text-sm font-semibold text-slate-300">Contraseña</label>
-                <div className="mt-1.5 relative rounded-md shadow-sm group">
+                <label className="block text-xs sm:text-sm font-semibold text-slate-300 mb-1">Contraseña</label>
+                <div className="relative rounded-md shadow-sm group">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
                     <Lock className="h-5 w-5 text-slate-500 group-focus-within:text-cyan-400 transition-colors" />
                   </div>
@@ -194,7 +234,7 @@ export default function Login() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between pt-1">
                 <div className="text-xs sm:text-sm">
                   <button 
                     type="button"
@@ -206,7 +246,7 @@ export default function Login() {
                 </div>
               </div>
 
-              <div>
+              <div className="pt-2">
                 <button 
                   type="submit" 
                   disabled={loading}
@@ -217,7 +257,7 @@ export default function Login() {
               </div>
             </form>
           ) : (
-            <form className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300" onSubmit={handleForgotPassword}>
+            <form className="space-y-4 sm:space-y-5 animate-in fade-in slide-in-from-right-4 duration-300" onSubmit={handleForgotPassword}>
               <div className="flex flex-col gap-2 mb-2">
                 <div className="w-11 h-11 bg-blue-900/30 rounded-xl border border-blue-500/30 flex items-center justify-center mb-1">
                   <KeyRound className="w-5 h-5 text-cyan-400" />
@@ -229,8 +269,8 @@ export default function Login() {
               </div>
 
               <div>
-                <label className="block text-xs sm:text-sm font-semibold text-slate-300">Usuario / Sucursal</label>
-                <div className="mt-1.5 relative rounded-md shadow-sm group">
+                <label className="block text-xs sm:text-sm font-semibold text-slate-300 mb-1">Usuario / Sucursal</label>
+                <div className="relative rounded-md shadow-sm group">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
                     <User className="h-5 w-5 text-slate-500 group-focus-within:text-cyan-400 transition-colors" />
                   </div>
