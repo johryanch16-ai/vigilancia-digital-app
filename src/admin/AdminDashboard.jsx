@@ -266,7 +266,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Filtros rápidos */}
-      <div className="flex gap-2 mb-6 overflow-x-auto pb-2 scrollbar-hide text-xs sm:text-sm">
+      <div className="flex gap-2 mb-6 flex-wrap text-xs sm:text-sm">
         <button 
           onClick={() => setFilter('all')} 
           className={`px-3.5 py-2 rounded-xl font-bold whitespace-nowrap transition-all ${filter === 'all' ? 'bg-cyan-600 text-white shadow-lg' : 'bg-[#0f172a] text-slate-400 border border-slate-800 hover:text-white'}`}

@@ -181,7 +181,7 @@ export default function AdminBitacora() {
           />
         </div>
 
-        <div className="flex gap-2 overflow-x-auto pb-1 text-xs sm:text-sm">
+        <div className="flex gap-2 flex-wrap text-xs sm:text-sm">
           <button
             onClick={() => setFilterType('all')}
             className={`px-3.5 py-2 rounded-xl font-bold transition-all whitespace-nowrap ${filterType === 'all' ? 'bg-cyan-600 text-white shadow-md' : 'bg-[#0f172a] text-slate-400 border border-slate-800 hover:text-white'}`}

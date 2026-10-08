@@ -199,15 +199,26 @@ export default function AdminBranchTickets() {
         </div>
       </div>
 
-      {/* Selector de Sucursales (Pills / Botones de Filtro por Sucursal) */}
-      <div className="mb-6">
-        <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2.5">
-          Filtrar por Punto de Operación / Sucursal:
-        </label>
-        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide text-xs sm:text-sm">
+      {/* Selector de Sucursales (Pills Flex-Wrap sin barra de scroll) */}
+      <div className="mb-6 bg-[#0f172a] p-4 sm:p-5 rounded-2xl border border-slate-800 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+          <label className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+            <Building2 className="w-4 h-4 text-cyan-400" />
+            Punto de Operación / Sucursal:
+          </label>
+          <span className="text-[11px] text-slate-400 font-medium">
+            Toca una sucursal para ver, editar o corregir sus incidencias
+          </span>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 text-xs sm:text-sm">
           <button
             onClick={() => setSelectedBranch('ALL')}
-            className={`px-4 py-2.5 rounded-xl font-bold transition-all whitespace-nowrap flex items-center gap-2 ${selectedBranch === 'ALL' ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg' : 'bg-[#0f172a] text-slate-300 border border-slate-800 hover:border-slate-600'}`}
+            className={`px-3.5 py-2.5 rounded-xl font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              selectedBranch === 'ALL' 
+                ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg ring-2 ring-cyan-400/40' 
+                : 'bg-slate-800/80 text-slate-300 border border-slate-700/80 hover:bg-slate-700/80 hover:text-white'
+            }`}
           >
             <span>Todas las Sucursales</span>
             <span className="bg-black/30 px-2 py-0.5 rounded-md text-[11px] font-mono">{tickets.length}</span>
@@ -215,14 +226,23 @@ export default function AdminBranchTickets() {
 
           {BRANCH_NAMES.map(branch => {
             const count = getBranchCount(branch);
+            const isSelected = selectedBranch === branch;
             return (
               <button
                 key={branch}
                 onClick={() => setSelectedBranch(branch)}
-                className={`px-3.5 py-2.5 rounded-xl font-bold transition-all whitespace-nowrap flex items-center gap-2 ${selectedBranch === branch ? 'bg-cyan-600 text-white shadow-lg' : 'bg-[#0f172a] text-slate-300 border border-slate-800 hover:border-slate-600'}`}
+                className={`px-3 py-2.5 rounded-xl font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                  isSelected 
+                    ? 'bg-cyan-600 text-white shadow-lg ring-2 ring-cyan-400/40' 
+                    : 'bg-slate-800/80 text-slate-300 border border-slate-700/80 hover:bg-slate-700/80 hover:text-white'
+                }`}
               >
                 <span>{branch}</span>
-                <span className={`px-2 py-0.5 rounded-md text-[11px] font-mono ${count > 0 ? 'bg-cyan-950 text-cyan-300 font-bold' : 'bg-slate-800 text-slate-500'}`}>
+                <span className={`px-2 py-0.5 rounded-md text-[11px] font-mono ${
+                  count > 0 
+                    ? (isSelected ? 'bg-black/30 text-white' : 'bg-cyan-950 text-cyan-300 font-bold') 
+                    : 'bg-slate-900 text-slate-500'
+                }`}>
                   {count}
                 </span>
               </button>

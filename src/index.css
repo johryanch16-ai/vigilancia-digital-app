@@ -1,4 +1,4 @@
-@import "tailwindcss";
+﻿@import "tailwindcss";
 
 body {
   margin: 0;
@@ -7,6 +7,19 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-color: #0a1128;
+  color: #f8fafc;
+}
+
+/* Ocultar barras de scroll no deseadas manteniendo funcionalidad */
+.scrollbar-hide, .no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar, .no-scrollbar::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 /* Ensure inputs in dark mode always default to crisp, visible text */
