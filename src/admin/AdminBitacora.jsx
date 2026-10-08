@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Filter, MoreVertical, CheckCircle2, Clock, AlertCircle, X, MapPin, Tag, Calendar, User, MessageSquare, AlignLeft, Archive, Trash2, Shield, RotateCcw } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -35,7 +35,7 @@ export default function AdminBitacora() {
         status: t.status,
         priority: t.priority,
         zone: t.zones?.name || 'Sin zona',
-        category: t.categories?.name || 'Sin categoría',
+        category: t.categories?.name || 'Sin categorÃ­a',
         equipo: t.equipos?.name || 'Ninguno',
         user: t.reporter_name,
         date: new Date(t.created_at).toLocaleString(),
@@ -45,9 +45,18 @@ export default function AdminBitacora() {
     }
   };
 
+  const getPriorityBadge = (priority) => {
+    switch (priority) {
+      case 'Crítica': case 'Critica': return 'bg-red-500/20 text-red-400 border-red-500/40';
+      case 'Alta': return 'bg-orange-500/20 text-orange-400 border-orange-500/40';
+      case 'Media': return 'bg-blue-500/20 text-blue-400 border-blue-500/40';
+      default: return 'bg-slate-500/20 text-slate-300 border-slate-500/40';
+    }
+  };
+
   const getPriorityColor = (priority) => {
     switch (priority) {
-      case 'Crítica': return 'bg-red-100 text-red-700 font-bold';
+      case 'CrÃ­tica': return 'bg-red-100 text-red-700 font-bold';
       case 'Alta': return 'bg-orange-100 text-orange-700 font-bold';
       case 'Media': return 'bg-blue-100 text-blue-700 font-bold';
       default: return 'bg-slate-100 text-slate-300 font-bold';
@@ -60,7 +69,7 @@ export default function AdminBitacora() {
 
   const handleRestoreTicket = async (id, e) => {
     e.stopPropagation();
-    if (window.confirm('¿Deseas restaurar este ticket? Volverá al Centro de Control principal.')) {
+    if (window.confirm('Â¿Deseas restaurar este ticket? VolverÃ¡ al Centro de Control principal.')) {
       const { error } = await supabase.from('tickets').update({ status: 'Abierto' }).eq('id', id);
       if (!error) {
         setTickets(tickets.filter(t => t.id !== id));
@@ -72,7 +81,7 @@ export default function AdminBitacora() {
 
   const handleDeletePermanent = async (id, e) => {
     e.stopPropagation();
-    if (window.confirm('¡ATENCIÓN! ¿Estás totalmente seguro de eliminar este ticket permanentemente? Esta acción NO se puede deshacer.')) {
+    if (window.confirm('Â¡ATENCIÃ“N! Â¿EstÃ¡s totalmente seguro de eliminar este ticket permanentemente? Esta acciÃ³n NO se puede deshacer.')) {
       const { error } = await supabase.from('tickets').delete().eq('id', id);
       if (!error) {
         setTickets(tickets.filter(t => t.id !== id));
@@ -96,9 +105,9 @@ export default function AdminBitacora() {
         <div>
           <h1 className="text-2xl font-bold text-red-900 tracking-tight flex items-center gap-2">
             <Archive className="w-6 h-6 text-red-600" />
-            Bitácora Privada - Archivo Secreto
+            BitÃ¡cora Privada - Archivo Secreto
           </h1>
-          <p className="mt-1 text-sm text-red-700 font-medium">Registro histórico de tickets eliminados. Acceso exclusivo para Dirección (Johryan).</p>
+          <p className="mt-1 text-sm text-red-700 font-medium">Registro histÃ³rico de tickets eliminados. Acceso exclusivo para DirecciÃ³n (Johryan).</p>
         </div>
           {/* Ticket Table */}
       <div className="bg-[#0f172a] rounded-2xl shadow-sm border border-slate-700 overflow-hidden">
@@ -110,7 +119,7 @@ export default function AdminBitacora() {
                 <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-widest">Ticket</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-widest">Estado</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-widest">Prioridad</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-widest">Zona / Categoría</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-widest">Zona / CategorÃ­a</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-widest">Fecha</th>
                 <th className="px-6 py-4 text-right text-xs font-bold text-slate-400 uppercase tracking-widest">Acciones</th>
               </tr>
@@ -278,7 +287,7 @@ export default function AdminBitacora() {
                 <div className="flex items-start gap-4 p-4 bg-[#0f172a]/5 rounded-2xl border border-white/5">
                   <div className="p-2 bg-cyan-500/10 rounded-lg text-cyan-400"><Tag className="w-5 h-5" /></div>
                   <div>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">CategorÃ­a</p>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">CategorÃƒÂ­a</p>
                     <p className="text-sm text-slate-200 font-semibold">{selectedTicket.category}</p>
                   </div>
                 </div>
@@ -298,7 +307,7 @@ export default function AdminBitacora() {
                 </div>
               </div>
 
-              {/* DescripciÃ³n */}
+              {/* DescripciÃƒÂ³n */}
               <div className="mb-8">
                 <h3 className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
                   <AlignLeft className="w-4 h-4 text-slate-400" /> Registro del Incidente
@@ -311,7 +320,7 @@ export default function AdminBitacora() {
               {/* Historial / Chat */}
               <div>
                 <h3 className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
-                  <MessageSquare className="w-4 h-4 text-slate-400" /> BitÃ¡cora de Soporte
+                  <MessageSquare className="w-4 h-4 text-slate-400" /> BitÃƒÂ¡cora de Soporte
                 </h3>
                 <div className="space-y-6 relative before:absolute before:inset-0 before:ml-6 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-px before:bg-gradient-to-b before:from-blue-500/50 before:via-white/10 before:to-transparent">
                   
@@ -322,10 +331,10 @@ export default function AdminBitacora() {
                     </div>
                     <div className="w-[calc(100%-4rem)] md:w-[calc(50%-3rem)] bg-[#0f172a]/5 p-5 rounded-2xl border border-white/10">
                       <div className="flex items-center justify-between mb-2">
-                        <span className="font-bold text-white text-sm">IngenierÃ­a Nivel 1</span>
+                        <span className="font-bold text-white text-sm">IngenierÃƒÂ­a Nivel 1</span>
                         <span className="text-xs font-medium text-slate-400">Hace 2 min</span>
                       </div>
-                      <p className="text-sm text-slate-400">AnÃ¡lisis inicial completado. Dispositivo fuera de red. Escalamiento a cuadrilla en sitio en proceso.</p>
+                      <p className="text-sm text-slate-400">AnÃƒÂ¡lisis inicial completado. Dispositivo fuera de red. Escalamiento a cuadrilla en sitio en proceso.</p>
                     </div>
                   </div>
 
@@ -335,7 +344,7 @@ export default function AdminBitacora() {
                       +
                     </div>
                     <div className="w-[calc(100%-4rem)] md:w-[calc(50%-3rem)] bg-[#0f172a]/5 p-2 rounded-2xl border border-white/10 focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 transition-all flex items-center">
-                      <input type="text" placeholder="AÃ±adir nota cifrada a la bitÃ¡cora..." className="w-full px-3 py-2 text-sm outline-none bg-transparent text-slate-200 placeholder-slate-500" />
+                      <input type="text" placeholder="AÃƒÂ±adir nota cifrada a la bitÃƒÂ¡cora..." className="w-full px-3 py-2 text-sm outline-none bg-transparent text-slate-200 placeholder-slate-500" />
                       <button className="p-2 bg-blue-600 text-white rounded-xl hover:bg-blue-500 transition-colors shadow-sm">
                         <CheckCircle2 className="w-4 h-4" />
                       </button>
@@ -356,15 +365,15 @@ export default function AdminBitacora() {
                   defaultValue={selectedTicket.status}
                   className="w-full bg-[#0a1128] border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-slate-200 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all appearance-none cursor-pointer"
                 >
-                  <option value="Abierto">ðŸ”´ Triage Pendiente (Abierto)</option>
-                  <option value="En Progreso">ðŸ”µ OperaciÃ³n en Curso</option>
-                  <option value="Resuelto">ðŸŸ¢ MisiÃ³n Cumplida (Resolver)</option>
+                  <option value="Abierto">Ã°Å¸â€Â´ Triage Pendiente (Abierto)</option>
+                  <option value="En Progreso">Ã°Å¸â€Âµ OperaciÃƒÂ³n en Curso</option>
+                  <option value="Resuelto">Ã°Å¸Å¸Â¢ MisiÃƒÂ³n Cumplida (Resolver)</option>
                 </select>
               </div>
               <button 
                 onClick={() => {
                   const newStatus = document.getElementById('status-select').value;
-                  const cleanStatus = newStatus.replace(/ðŸŸ¢ |ðŸ”µ |ðŸ”´ |Triage Pendiente \(|\)|OperaciÃ³n en Curso|MisiÃ³n Cumplida \(/g, '').replace('Resolver)', 'Resuelto').replace('Abierto)', 'Abierto').replace('En Curso', 'En Progreso').trim();
+                  const cleanStatus = newStatus.replace(/Ã°Å¸Å¸Â¢ |Ã°Å¸â€Âµ |Ã°Å¸â€Â´ |Triage Pendiente \(|\)|OperaciÃƒÂ³n en Curso|MisiÃƒÂ³n Cumplida \(/g, '').replace('Resolver)', 'Resuelto').replace('Abierto)', 'Abierto').replace('En Curso', 'En Progreso').trim();
                   
                   // Mapeo seguro
                   let finalStatus = 'Abierto';
