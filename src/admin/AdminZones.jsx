@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { MapPin, Plus, Edit2, Trash2, X, CheckCircle2, ShieldCheck, Search, Building } from 'lucide-react';
-import { fetchAllZones, createZoneRecord, updateZoneRecord, deleteZoneRecord } from '../lib/zonesStorage';
+import { fetchAllZones, getLocalZones, createZoneRecord, updateZoneRecord, deleteZoneRecord } from '../lib/zonesStorage';
 
 export default function AdminZones() {
-  const [zones, setZones] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [zones, setZones] = useState(() => getLocalZones());
+  const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingZone, setEditingZone] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -26,10 +26,12 @@ export default function AdminZones() {
   };
 
   const loadZones = async () => {
-    setLoading(true);
-    const data = await fetchAllZones();
-    setZones(data || []);
-    setLoading(false);
+    const current = getLocalZones();
+    if (current && current.length > 0) setZones(current);
+    try {
+      const data = await fetchAllZones();
+      if (data && data.length > 0) setZones(data);
+    } catch (e) {}
   };
 
   const handleSaveZone = async (e) => {

@@ -3,7 +3,6 @@ import { BRANCH_ACCOUNTS } from './branches';
 
 const STORAGE_KEY = 'vigilancia_local_zones';
 
-// Generar zonas por defecto basadas en las cuentas de sucursales oficiales
 function getDefaultZones() {
   return BRANCH_ACCOUNTS.map((branch, index) => ({
     id: branch.id || `zone-default-${index + 1}`,
@@ -35,21 +34,29 @@ export function getLocalZones() {
   }
 }
 
-export function saveLocalZones(zones) {
+export function saveLocalZones(zones, notify = true) {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(zones));
-    window.dispatchEvent(new CustomEvent('vigilancia:zones_updated', { detail: { zones } }));
+    if (notify) {
+      window.dispatchEvent(new CustomEvent('vigilancia:zones_updated', { detail: { zones } }));
+    }
   } catch (e) {}
 }
 
 export async function fetchAllZones() {
   const localZones = getLocalZones();
   try {
-    const { data, error } = await supabase
+    const fetchPromise = supabase
       .from('zones')
       .select('*')
       .order('name', { ascending: true });
+
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Timeout Supabase zones')), 1200)
+    );
+
+    const { data, error } = await Promise.race([fetchPromise, timeoutPromise]);
 
     if (!error && Array.isArray(data) && data.length > 0) {
       const mergedMap = new Map();
@@ -61,12 +68,10 @@ export async function fetchAllZones() {
         }
       });
       const merged = Array.from(mergedMap.values());
-      saveLocalZones(merged);
+      saveLocalZones(merged, false);
       return merged;
     }
-  } catch (err) {
-    console.warn('Supabase no disponible para zonas, usando almacenamiento local seguro:', err.message);
-  }
+  } catch (err) {}
   return localZones;
 }
 
@@ -84,24 +89,28 @@ export async function createZoneRecord({ name, address, status = 'Activa' }) {
 
   const current = getLocalZones();
   const updated = [newZone, ...current.filter(z => z.name.toLowerCase() !== trimmedName.toLowerCase())];
-  saveLocalZones(updated);
+  saveLocalZones(updated, true);
 
   let remoteSynced = false;
   try {
-    const { data, error } = await supabase
+    const insertPromise = supabase
       .from('zones')
       .insert([{ name: trimmedName, address: trimmedAddress, status }])
       .select();
 
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Timeout Supabase')), 1200)
+    );
+
+    const { data, error } = await Promise.race([insertPromise, timeoutPromise]);
+
     if (!error && data && data[0]) {
       remoteSynced = true;
       const syncedUpdated = updated.map(z => z.id === newZone.id ? data[0] : z);
-      saveLocalZones(syncedUpdated);
+      saveLocalZones(syncedUpdated, false);
       return { success: true, zone: data[0], remoteSynced: true };
     }
-  } catch (err) {
-    console.warn('Supabase no disponible al crear zona, guardada localmente:', err.message);
-  }
+  } catch (err) {}
 
   return { success: true, zone: newZone, remoteSynced };
 }
@@ -116,13 +125,13 @@ export async function updateZoneRecord(id, updates) {
     }
     return z;
   });
-  saveLocalZones(updated);
+  saveLocalZones(updated, true);
 
   try {
-    await supabase.from('zones').update(updates).eq('id', id);
-  } catch (err) {
-    console.warn('Supabase no disponible al actualizar zona:', err.message);
-  }
+    const updatePromise = supabase.from('zones').update(updates).eq('id', id);
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 1200));
+    await Promise.race([updatePromise, timeoutPromise]);
+  } catch (err) {}
 
   return updatedZone;
 }
@@ -130,13 +139,13 @@ export async function updateZoneRecord(id, updates) {
 export async function deleteZoneRecord(id) {
   const current = getLocalZones();
   const updated = current.filter(z => z.id !== id);
-  saveLocalZones(updated);
+  saveLocalZones(updated, true);
 
   try {
-    await supabase.from('zones').delete().eq('id', id);
-  } catch (err) {
-    console.warn('Supabase no disponible al eliminar zona:', err.message);
-  }
+    const deletePromise = supabase.from('zones').delete().eq('id', id);
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 1200));
+    await Promise.race([deletePromise, timeoutPromise]);
+  } catch (err) {}
 
   return true;
 }

@@ -23,19 +23,20 @@ import {
 import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react';
 import { 
   fetchAllEquipos, 
+  getLocalEquipos, 
   createEquipoRecord, 
   updateEquipoRecord, 
   deleteEquipoRecord, 
   findEquipoByScannedCode 
 } from '../lib/equiposStorage';
-import { fetchAllZones, createZoneRecord } from '../lib/zonesStorage';
+import { fetchAllZones, getLocalZones, createZoneRecord } from '../lib/zonesStorage';
 import EquipmentScannerModal from './EquipmentScannerModal';
 import { playScanBeep } from '../lib/notificationAudio';
 
 export default function AdminEquipos() {
-  const [equipos, setEquipos] = useState([]);
-  const [zones, setZones] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [equipos, setEquipos] = useState(() => getLocalEquipos());
+  const [zones, setZones] = useState(() => getLocalZones());
+  const [loading, setLoading] = useState(false);
   
   // Modales
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -72,13 +73,19 @@ export default function AdminEquipos() {
   useEffect(() => {
     loadData();
 
-    const handleEquiposUpdate = () => loadData();
+    const handleEquiposUpdate = () => {
+      setEquipos(getLocalEquipos());
+    };
+    const handleZonesUpdate = () => {
+      setZones(getLocalZones());
+    };
+
     window.addEventListener('vigilancia:equipos_updated', handleEquiposUpdate);
-    window.addEventListener('vigilancia:zones_updated', handleEquiposUpdate);
+    window.addEventListener('vigilancia:zones_updated', handleZonesUpdate);
 
     return () => {
       window.removeEventListener('vigilancia:equipos_updated', handleEquiposUpdate);
-      window.removeEventListener('vigilancia:zones_updated', handleEquiposUpdate);
+      window.removeEventListener('vigilancia:zones_updated', handleZonesUpdate);
     };
   }, []);
 
@@ -122,14 +129,22 @@ export default function AdminEquipos() {
   };
 
   const loadData = async () => {
-    setLoading(true);
-    const [equiposData, zonesData] = await Promise.all([
-      fetchAllEquipos(),
-      fetchAllZones()
-    ]);
-    setEquipos(equiposData || []);
-    setZones(zonesData || []);
-    setLoading(false);
+    // 1. Mostrar de inmediato lo que ya está guardado en el navegador (0 ms)
+    const currentLocals = getLocalEquipos();
+    const currentZones = getLocalZones();
+    if (currentLocals && currentLocals.length > 0) setEquipos(currentLocals);
+    if (currentZones && currentZones.length > 0) setZones(currentZones);
+
+    try {
+      const [equiposData, zonesData] = await Promise.all([
+        fetchAllEquipos(),
+        fetchAllZones()
+      ]);
+      if (equiposData && equiposData.length > 0) setEquipos(equiposData);
+      if (zonesData && zonesData.length > 0) setZones(zonesData);
+    } catch (e) {
+      // Modo offline resiliente
+    }
   };
 
   const handleChange = (e) => {
@@ -173,12 +188,13 @@ export default function AdminEquipos() {
       return;
     }
 
+    const targetZone = formData.zone_id || zones[0]?.id || 'zone-default-1';
     const payload = {
       name: formData.name.trim(),
       type: formData.type,
       description: formData.description,
       ip: formData.ip,
-      zone_id: formData.zone_id,
+      zone_id: targetZone,
       status: formData.status
     };
 
@@ -193,6 +209,7 @@ export default function AdminEquipos() {
         showNotification(`Equipo "${payload.name}" registrado con éxito.`);
       }
 
+      setEquipos(getLocalEquipos());
       await loadData();
       resetForm();
 
@@ -250,7 +267,7 @@ export default function AdminEquipos() {
     if (window.confirm(`¿Estás seguro de eliminar el equipo "${name}"?`)) {
       await deleteEquipoRecord(id);
       showNotification(`Equipo "${name}" eliminado.`, 'info');
-      await loadData();
+      setEquipos(getLocalEquipos());
     }
   };
 

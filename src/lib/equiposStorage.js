@@ -1,4 +1,4 @@
-﻿import { supabase } from './supabase';
+import { supabase } from './supabase';
 import { getLocalZones } from './zonesStorage';
 
 const STORAGE_KEY = 'vigilancia_local_equipos';
@@ -55,24 +55,39 @@ export function getLocalEquipos() {
   }
 }
 
-export function saveLocalEquipos(equipos) {
+export function saveLocalEquipos(equipos, notify = true) {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(equipos));
-    window.dispatchEvent(new CustomEvent('vigilancia:equipos_updated', { detail: { equipos } }));
+    if (notify) {
+      window.dispatchEvent(new CustomEvent('vigilancia:equipos_updated', { detail: { equipos } }));
+    }
   } catch (e) {}
 }
 
 export async function fetchAllEquipos() {
+  // Retornar de inmediato los locales enriquecidos
   const localEquipos = getLocalEquipos();
   const zones = getLocalZones();
   const zonesMap = new Map(zones.map(z => [z.id, z.name]));
 
+  const enrichedLocals = localEquipos.map(eq => ({
+    ...eq,
+    zones: eq.zones || { name: zonesMap.get(eq.zone_id) || 'Sin asignar' }
+  }));
+
   try {
-    const { data, error } = await supabase
+    // Si Supabase no responde en 1200ms, abortar para no trabar la interfaz
+    const supabasePromise = supabase
       .from('equipos')
       .select('*, zones(name)')
       .order('created_at', { ascending: false });
+
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Timeout Supabase')), 1200)
+    );
+
+    const { data, error } = await Promise.race([supabasePromise, timeoutPromise]);
 
     if (!error && Array.isArray(data) && data.length > 0) {
       const mergedMap = new Map();
@@ -92,23 +107,19 @@ export async function fetchAllEquipos() {
       });
 
       const merged = Array.from(mergedMap.values());
-      saveLocalEquipos(merged);
+      saveLocalEquipos(merged, false);
       return merged;
     }
   } catch (err) {
-    console.warn('Supabase no disponible para equipos, usando almacenamiento local:', err.message);
+    // Modo offline resiliente silencioso
   }
 
-  // Enriquecer nombres de zonas en locales
-  return localEquipos.map(eq => ({
-    ...eq,
-    zones: eq.zones || { name: zonesMap.get(eq.zone_id) || 'Sin asignar' }
-  }));
+  return enrichedLocals;
 }
 
 export async function createEquipoRecord(payload) {
   const zones = getLocalZones();
-  const selectedZone = zones.find(z => z.id === payload.zone_id);
+  const selectedZone = zones.find(z => z.id === payload.zone_id) || zones[0];
 
   const newEquipo = {
     id: 'eq-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
@@ -116,7 +127,7 @@ export async function createEquipoRecord(payload) {
     type: payload.type || 'Computadora',
     description: payload.description || '',
     ip: payload.ip || '',
-    zone_id: payload.zone_id || '',
+    zone_id: payload.zone_id || selectedZone?.id || '',
     zones: { name: selectedZone?.name || 'Sin asignar' },
     status: payload.status || 'Activo',
     created_at: new Date().toISOString()
@@ -124,7 +135,7 @@ export async function createEquipoRecord(payload) {
 
   const current = getLocalEquipos();
   const updated = [newEquipo, ...current];
-  saveLocalEquipos(updated);
+  saveLocalEquipos(updated, true);
 
   let remoteSynced = false;
   try {
@@ -137,19 +148,25 @@ export async function createEquipoRecord(payload) {
       status: newEquipo.status
     };
 
-    const { data, error } = await supabase
+    const insertPromise = supabase
       .from('equipos')
       .insert([remotePayload])
       .select('*, zones(name)');
 
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Timeout Supabase')), 1200)
+    );
+
+    const { data, error } = await Promise.race([insertPromise, timeoutPromise]);
+
     if (!error && data && data[0]) {
       remoteSynced = true;
       const syncedUpdated = updated.map(e => e.id === newEquipo.id ? { ...data[0], zones: data[0].zones || newEquipo.zones } : e);
-      saveLocalEquipos(syncedUpdated);
+      saveLocalEquipos(syncedUpdated, false);
       return { success: true, equipo: data[0], remoteSynced: true };
     }
   } catch (err) {
-    console.warn('Supabase no disponible al registrar equipo, guardado localmente:', err.message);
+    // Si falla remoto, continúa guardado localmente de forma segura
   }
 
   return { success: true, equipo: newEquipo, remoteSynced };
@@ -174,13 +191,13 @@ export async function updateEquipoRecord(id, updates) {
     return eq;
   });
 
-  saveLocalEquipos(updated);
+  saveLocalEquipos(updated, true);
 
   try {
-    await supabase.from('equipos').update(updates).eq('id', id);
-  } catch (err) {
-    console.warn('Supabase no disponible al actualizar equipo:', err.message);
-  }
+    const updatePromise = supabase.from('equipos').update(updates).eq('id', id);
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 1200));
+    await Promise.race([updatePromise, timeoutPromise]);
+  } catch (err) {}
 
   return updatedEquipo;
 }
@@ -188,24 +205,22 @@ export async function updateEquipoRecord(id, updates) {
 export async function deleteEquipoRecord(id) {
   const current = getLocalEquipos();
   const updated = current.filter(eq => eq.id !== id);
-  saveLocalEquipos(updated);
+  saveLocalEquipos(updated, true);
 
   try {
-    await supabase.from('equipos').delete().eq('id', id);
-  } catch (err) {
-    console.warn('Supabase no disponible al eliminar equipo:', err.message);
-  }
+    const deletePromise = supabase.from('equipos').delete().eq('id', id);
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 1200));
+    await Promise.race([deletePromise, timeoutPromise]);
+  } catch (err) {}
 
   return true;
 }
 
-// Búsqueda inteligente para lector físico de barras o escáner QR de cámara
 export function findEquipoByScannedCode(codeString, equiposList = null) {
   if (!codeString || typeof codeString !== 'string') return null;
   const raw = codeString.trim();
   const list = equiposList || getLocalEquipos();
 
-  // 1. Intentar parsear como JSON si el QR tiene estructura { id, n, t }
   if (raw.startsWith('{') && raw.endsWith('}')) {
     try {
       const parsed = JSON.parse(raw);
@@ -220,19 +235,15 @@ export function findEquipoByScannedCode(codeString, equiposList = null) {
     } catch (e) {}
   }
 
-  // 2. Coincidencia exacta por ID
   const byId = list.find(e => e.id?.toString().toLowerCase() === raw.toLowerCase());
   if (byId) return byId;
 
-  // 3. Coincidencia exacta por Nombre / Identificador
   const byName = list.find(e => e.name?.toLowerCase().trim() === raw.toLowerCase());
   if (byName) return byName;
 
-  // 4. Coincidencia por IP
   const byIp = list.find(e => (e.ip || e.ip_address)?.trim() === raw);
   if (byIp) return byIp;
 
-  // 5. Coincidencia parcial si es código de barra o serial
   const partial = list.find(e => 
     e.name?.toLowerCase().includes(raw.toLowerCase()) || 
     (e.description && e.description.toLowerCase().includes(raw.toLowerCase())) ||
