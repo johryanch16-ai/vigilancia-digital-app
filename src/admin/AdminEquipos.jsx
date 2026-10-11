@@ -18,7 +18,9 @@ import {
   AlertCircle, 
   Download, 
   Sparkles,
-  Layers
+  Layers,
+  Search,
+  RotateCcw
 } from 'lucide-react';
 import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react';
 import { 
@@ -27,14 +29,16 @@ import {
   createEquipoRecord, 
   updateEquipoRecord, 
   deleteEquipoRecord, 
-  findEquipoByScannedCode 
+  findEquipoByScannedCode,
+  generateEquipoQRCode,
+  deduplicateEquipos
 } from '../lib/equiposStorage';
 import { fetchAllZones, getLocalZones, createZoneRecord } from '../lib/zonesStorage';
 import EquipmentScannerModal from './EquipmentScannerModal';
 import { playScanBeep } from '../lib/notificationAudio';
 
 export default function AdminEquipos() {
-  const [equipos, setEquipos] = useState(() => getLocalEquipos());
+  const [equipos, setEquipos] = useState(() => deduplicateEquipos(getLocalEquipos()));
   const [zones, setZones] = useState(() => getLocalZones());
   const [loading, setLoading] = useState(false);
   
@@ -60,6 +64,7 @@ export default function AdminEquipos() {
   // Formulario
   const [formData, setFormData] = useState({
     name: '',
+    qr_code: '',
     type: 'Computadora',
     description: '',
     ip: '',
@@ -74,7 +79,7 @@ export default function AdminEquipos() {
     loadData();
 
     const handleEquiposUpdate = () => {
-      setEquipos(getLocalEquipos());
+      setEquipos(deduplicateEquipos(getLocalEquipos()));
     };
     const handleZonesUpdate = () => {
       setZones(getLocalZones());
@@ -129,21 +134,27 @@ export default function AdminEquipos() {
   };
 
   const loadData = async () => {
-    // 1. Mostrar de inmediato lo que ya está guardado en el navegador (0 ms)
-    const currentLocals = getLocalEquipos();
+    const currentLocals = deduplicateEquipos(getLocalEquipos());
     const currentZones = getLocalZones();
-    if (currentLocals && currentLocals.length > 0) setEquipos(currentLocals);
-    if (currentZones && currentZones.length > 0) setZones(currentZones);
+    if (currentLocals) setEquipos(currentLocals);
+    if (currentZones) setZones(currentZones);
 
     try {
+      setLoading(true);
       const [equiposData, zonesData] = await Promise.all([
         fetchAllEquipos(),
         fetchAllZones()
       ]);
-      if (equiposData && equiposData.length > 0) setEquipos(equiposData);
-      if (zonesData && zonesData.length > 0) setZones(zonesData);
+      if (equiposData && equiposData.length > 0) {
+        setEquipos(deduplicateEquipos(equiposData));
+      }
+      if (zonesData && zonesData.length > 0) {
+        setZones(zonesData);
+      }
     } catch (e) {
       // Modo offline resiliente
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -154,6 +165,7 @@ export default function AdminEquipos() {
   const resetForm = () => {
     setFormData({ 
       name: '', 
+      qr_code: '',
       type: 'Computadora', 
       description: '', 
       ip: '', 
@@ -169,7 +181,8 @@ export default function AdminEquipos() {
 
   const handleEditClick = (equipo) => {
     setFormData({
-      name: equipo.name,
+      name: equipo.name || '',
+      qr_code: equipo.qr_code || '',
       type: equipo.type || 'Computadora',
       description: equipo.description || '',
       ip: equipo.ip || equipo.ip_address || '',
@@ -191,6 +204,7 @@ export default function AdminEquipos() {
     const targetZone = formData.zone_id || zones[0]?.id || 'zone-default-1';
     const payload = {
       name: formData.name.trim(),
+      qr_code: formData.qr_code?.trim() || undefined,
       type: formData.type,
       description: formData.description,
       ip: formData.ip,
@@ -206,11 +220,14 @@ export default function AdminEquipos() {
       } else {
         const res = await createEquipoRecord(payload);
         savedEquipo = res.equipo;
-        showNotification(`Equipo "${payload.name}" registrado con éxito.`);
+        if (res.isUpdated) {
+          showNotification(`Equipo existente "${payload.name}" actualizado (sin duplicados).`);
+        } else {
+          showNotification(`Equipo "${payload.name}" registrado con éxito.`);
+        }
       }
 
-      setEquipos(getLocalEquipos());
-      await loadData();
+      setEquipos(deduplicateEquipos(getLocalEquipos()));
       resetForm();
 
       if (shouldPrintQR && savedEquipo) {
@@ -221,7 +238,6 @@ export default function AdminEquipos() {
     }
   };
 
-  // Procesar código obtenido por cámara o lector de barras
   const handleProcessScannedCode = (scannedText) => {
     playScanBeep();
     const found = findEquipoByScannedCode(scannedText, equipos);
@@ -233,7 +249,6 @@ export default function AdminEquipos() {
     }
   };
 
-  // Crear zona al vuelo sin salirse ni perder los datos del equipo
   const handleQuickCreateZone = async (e) => {
     e.preventDefault();
     const trimmedName = newZoneName.trim();
@@ -267,11 +282,10 @@ export default function AdminEquipos() {
     if (window.confirm(`¿Estás seguro de eliminar el equipo "${name}"?`)) {
       await deleteEquipoRecord(id);
       showNotification(`Equipo "${name}" eliminado.`, 'info');
-      setEquipos(getLocalEquipos());
+      setEquipos(deduplicateEquipos(getLocalEquipos()));
     }
   };
 
-  // Impresión profesional de etiqueta de inventario
   const printQR = () => {
     const printWindow = window.open('', '_blank', 'width=800,height=650');
     if (!printWindow) {
@@ -293,14 +307,10 @@ export default function AdminEquipos() {
               margin: 8mm;
             }
             body {
-              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              min-height: 90vh;
               margin: 0;
               background: #fff;
               color: #000;
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             }
             .label-card {
               width: 320px;
@@ -320,7 +330,7 @@ export default function AdminEquipos() {
               margin-bottom: 12px;
             }
             .device-name {
-              font-size: 22px;
+              font-size: 20px;
               font-weight: 900;
               margin: 0 0 4px 0;
               word-break: break-all;
@@ -358,10 +368,14 @@ export default function AdminEquipos() {
               color: #444;
             }
             .footer-id {
-              font-size: 9px;
-              color: #666;
+              font-size: 10px;
+              color: #000;
+              font-weight: 800;
               font-family: monospace;
               margin-top: 8px;
+              padding-top: 6px;
+              border-top: 1px solid #ddd;
+              letter-spacing: 0.5px;
             }
             @media print {
               body {
@@ -399,7 +413,7 @@ export default function AdminEquipos() {
               </div>` : ''}
             </div>
 
-            <div class="footer-id">CÓDIGO: ${showQR?.id}</div>
+            <div class="footer-id">CÓDIGO QR / ACTIVO: ${showQR?.qr_code || showQR?.id}</div>
           </div>
         </body>
       </html>
@@ -413,7 +427,6 @@ export default function AdminEquipos() {
     }, 400);
   };
 
-  // Descargar el código QR en PNG
   const downloadQRPng = () => {
     const canvas = document.getElementById('qr-canvas-download');
     if (!canvas) return;
@@ -424,21 +437,24 @@ export default function AdminEquipos() {
     a.click();
   };
 
-  // Filtrado de equipos
+  // Filtrado de equipos en tiempo real (tolerante y reactivo)
   const filteredEquipos = equipos.filter(e => {
-    const matchesSearch = 
-      e.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      e.type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (e.ip && e.ip.includes(searchTerm)) ||
-      (e.zones?.name && e.zones.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (e.description && e.description.toLowerCase().includes(searchTerm.toLowerCase()));
+    const term = searchTerm.trim().toLowerCase();
+    const matchesSearch = !term || 
+      e.name?.toLowerCase().includes(term) ||
+      e.qr_code?.toLowerCase().includes(term) ||
+      e.type?.toLowerCase().includes(term) ||
+      (e.ip && e.ip.toLowerCase().includes(term)) ||
+      (e.zones?.name && e.zones.name.toLowerCase().includes(term)) ||
+      (e.description && e.description.toLowerCase().includes(term)) ||
+      (e.id && e.id.toString().toLowerCase().includes(term));
     
     const matchesZone = selectedZoneFilter === 'all' || e.zone_id === selectedZoneFilter;
     return matchesSearch && matchesZone;
   });
 
   return (
-    <div className="p-4 sm:p-6 max-w-7xl mx-auto animate-in fade-in duration-300">
+    <div className="p-3 sm:p-6 max-w-7xl mx-auto animate-in fade-in duration-300">
       
       {/* Toast Notification */}
       {notification && (
@@ -449,32 +465,30 @@ export default function AdminEquipos() {
       )}
 
       {/* Cabecera Principal */}
-      <div className="sm:flex sm:items-center sm:justify-between mb-8 gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 sm:mb-8 gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2.5">
-            <Monitor className="w-7 h-7 text-cyan-400" />
+          <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight flex items-center gap-2.5">
+            <Monitor className="w-6 h-6 sm:w-7 sm:h-7 text-cyan-400" />
             Inventario y Control de Equipos
           </h1>
-          <p className="mt-1 text-sm text-slate-400 font-medium">
-            Gestiona el hardware, imprime códigos QR de inventario y escanea con la cámara del teléfono o lector físico.
+          <p className="mt-1 text-xs sm:text-sm text-slate-400 font-medium">
+            Gestiona el hardware, imprime códigos QR de inventario únicos y escanea con la cámara o lector físico.
           </p>
         </div>
 
         {/* Botones de Acción Superiores */}
-        <div className="mt-4 sm:mt-0 flex flex-wrap gap-2.5">
-          {/* Botón de Escanear con Cámara */}
+        <div className="flex flex-wrap gap-2.5">
           <button 
             onClick={() => setIsScannerOpen(true)}
-            className="flex items-center justify-center px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:shadow-[0_0_30px_rgba(16,185,129,0.5)] transition-all gap-2 text-sm cursor-pointer"
+            className="flex-1 sm:flex-none items-center justify-center px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:shadow-[0_0_30px_rgba(16,185,129,0.5)] transition-all gap-2 text-xs sm:text-sm inline-flex cursor-pointer"
           >
             <Camera className="w-4 h-4" />
             <span>Escanear con Cámara</span>
           </button>
 
-          {/* Botón de Registrar Equipo */}
           <button 
             onClick={() => { resetForm(); setIsModalOpen(true); }}
-            className="flex items-center justify-center px-5 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-bold rounded-xl shadow-[0_0_20px_rgba(37,99,235,0.3)] hover:shadow-[0_0_30px_rgba(37,99,235,0.5)] transition-all gap-2 text-sm cursor-pointer"
+            className="flex-1 sm:flex-none items-center justify-center px-4 sm:px-5 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-bold rounded-xl shadow-[0_0_20px_rgba(37,99,235,0.3)] hover:shadow-[0_0_30px_rgba(37,99,235,0.5)] transition-all gap-2 text-xs sm:text-sm inline-flex cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>Registrar Equipo</span>
@@ -483,7 +497,7 @@ export default function AdminEquipos() {
       </div>
 
       {/* Barra de Búsqueda, Filtros y Lector de Código de Barras */}
-      <div className="bg-[#0f172a] p-4 rounded-2xl border border-slate-800 mb-6 flex flex-col md:flex-row gap-3 items-center justify-between">
+      <div className="bg-[#0f172a] p-3 sm:p-4 rounded-2xl border border-slate-800 mb-6 flex flex-col md:flex-row gap-3 items-center justify-between">
         
         {/* Input de Búsqueda / Escáner de pistola */}
         <div className="relative w-full md:w-96">
@@ -492,7 +506,7 @@ export default function AdminEquipos() {
           </div>
           <input 
             type="text"
-            placeholder="Escanear con lector o buscar equipo..."
+            placeholder="Buscar por nombre, código QR o IP..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             onKeyDown={(e) => {
@@ -500,25 +514,35 @@ export default function AdminEquipos() {
                 handleProcessScannedCode(searchTerm);
               }
             }}
-            className="w-full pl-10 pr-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 font-medium"
+            className="w-full pl-10 pr-9 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-xs sm:text-sm text-white placeholder-slate-500 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 font-medium"
           />
+          {searchTerm && (
+            <button 
+              onClick={() => setSearchTerm('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
         {/* Filtro por Sucursal / Zona */}
-        <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
-          <label className="text-xs font-bold text-slate-400">Sucursal:</label>
-          <select 
-            value={selectedZoneFilter}
-            onChange={(e) => setSelectedZoneFilter(e.target.value)}
-            className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs font-semibold text-white outline-none focus:border-cyan-500"
-          >
-            <option value="all">Todas las sucursales ({equipos.length})</option>
-            {zones.map(z => (
-              <option key={z.id} value={z.id}>{z.name}</option>
-            ))}
-          </select>
+        <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-between md:justify-end">
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-bold text-slate-400">Sucursal:</label>
+            <select 
+              value={selectedZoneFilter}
+              onChange={(e) => setSelectedZoneFilter(e.target.value)}
+              className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs font-semibold text-white outline-none focus:border-cyan-500 cursor-pointer"
+            >
+              <option value="all">Todas las sucursales ({equipos.length})</option>
+              {zones.map(z => (
+                <option key={z.id} value={z.id}>{z.name}</option>
+              ))}
+            </select>
+          </div>
 
-          <span className="text-xs text-slate-400 font-mono ml-auto">
+          <span className="text-xs text-slate-400 font-mono">
             <strong>{filteredEquipos.length}</strong> de {equipos.length} equipos
           </span>
         </div>
@@ -545,62 +569,50 @@ export default function AdminEquipos() {
               </div>
               <button 
                 onClick={() => setScannedEquipoModal(null)}
-                className="text-slate-400 hover:text-white transition-colors"
+                className="text-slate-400 hover:text-white transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-6">
-              <div className="flex items-center gap-4 mb-5">
-                <div className="p-3.5 bg-cyan-950/70 border border-cyan-800 text-cyan-400 rounded-2xl shadow-inner">
-                  {scannedEquipoModal.type === 'Servidor' ? <Server className="w-8 h-8" /> : <Monitor className="w-8 h-8" />}
+            <div className="p-6 space-y-4">
+              <div className="flex items-center gap-3 bg-slate-900 p-4 rounded-2xl border border-slate-800">
+                <div className="p-3 bg-cyan-950/80 text-cyan-400 rounded-xl border border-cyan-800/60">
+                  {scannedEquipoModal.type === 'Servidor' ? <Server className="w-6 h-6" /> : <Monitor className="w-6 h-6" />}
                 </div>
-                <div>
-                  <h4 className="text-xl font-black text-white">{scannedEquipoModal.name}</h4>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-xs text-slate-400 font-semibold">{scannedEquipoModal.type}</span>
-                    <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full border ${
-                      scannedEquipoModal.status === 'Activo' ? 'bg-emerald-900/40 text-emerald-300 border-emerald-700' : 
-                      scannedEquipoModal.status === 'Mantenimiento' ? 'bg-amber-900/40 text-amber-300 border-amber-700' : 
-                      'bg-red-900/40 text-red-300 border-red-700'
-                    }`}>
-                      {scannedEquipoModal.status}
-                    </span>
-                  </div>
+                <div className="min-w-0 flex-1">
+                  <div className="font-bold text-white text-base truncate">{scannedEquipoModal.name}</div>
+                  <div className="text-xs text-slate-400 mt-0.5">{scannedEquipoModal.type} • {scannedEquipoModal.zones?.name || 'Sin asignar'}</div>
+                  <div className="font-mono text-[11px] text-cyan-400 mt-1 font-bold">CÓDIGO: {scannedEquipoModal.qr_code || scannedEquipoModal.id}</div>
                 </div>
               </div>
 
-              {/* Ficha de Detalles */}
-              <div className="bg-slate-900/80 rounded-2xl p-4 border border-slate-800 space-y-2.5 text-xs text-slate-300 mb-6">
-                <div className="flex justify-between items-center pb-2 border-b border-slate-800">
-                  <span className="text-slate-500 font-bold uppercase tracking-wider">Sucursal / Ubicación:</span>
-                  <span className="font-bold text-white flex items-center gap-1">
-                    <MapPin className="w-3.5 h-3.5 text-cyan-400" />
-                    {scannedEquipoModal.zones?.name || 'Sin asignar'}
-                  </span>
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+                  <span className="text-slate-500 block mb-1">Dirección IP</span>
+                  <span className="font-mono font-bold text-cyan-400">{scannedEquipoModal.ip || 'DHCP'}</span>
                 </div>
-                <div className="flex justify-between items-center pb-2 border-b border-slate-800">
-                  <span className="text-slate-500 font-bold uppercase tracking-wider">Dirección IP:</span>
-                  <span className="font-mono text-cyan-400 font-bold">{scannedEquipoModal.ip || 'DHCP'}</span>
+                <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+                  <span className="text-slate-500 block mb-1">Estado</span>
+                  <span className="font-bold text-emerald-400">{scannedEquipoModal.status}</span>
                 </div>
-                {scannedEquipoModal.description && (
-                  <div className="pt-1">
-                    <span className="text-slate-500 font-bold uppercase tracking-wider block mb-1">Descripción:</span>
-                    <p className="text-slate-300 text-xs italic">{scannedEquipoModal.description}</p>
-                  </div>
-                )}
               </div>
 
-              {/* Acciones para el Equipo Escaneado */}
-              <div className="grid grid-cols-2 gap-3 mb-3">
+              {scannedEquipoModal.description && (
+                <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800 text-xs">
+                  <span className="text-slate-500 block mb-1">Detalle / Especificaciones</span>
+                  <p className="text-slate-300">{scannedEquipoModal.description}</p>
+                </div>
+              )}
+
+              <div className="pt-2 flex gap-3">
                 <button 
                   onClick={() => {
                     const eq = scannedEquipoModal;
                     setScannedEquipoModal(null);
                     setShowQR(eq);
                   }}
-                  className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 border border-slate-700 text-xs transition-colors cursor-pointer"
+                  className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 border border-slate-700 text-xs transition-colors cursor-pointer"
                 >
                   <Printer className="w-4 h-4 text-cyan-400" /> Imprimir QR
                 </button>
@@ -610,21 +622,11 @@ export default function AdminEquipos() {
                     setScannedEquipoModal(null);
                     handleEditClick(eq);
                   }}
-                  className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl flex items-center justify-center gap-2 text-xs transition-colors cursor-pointer"
+                  className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl flex items-center justify-center gap-2 text-xs transition-colors cursor-pointer"
                 >
                   <Edit2 className="w-4 h-4" /> Editar Datos
                 </button>
               </div>
-
-              <button 
-                onClick={() => {
-                  setScannedEquipoModal(null);
-                  setIsScannerOpen(true);
-                }}
-                className="w-full py-2.5 bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30 rounded-xl font-bold text-xs border border-emerald-500/40 flex items-center justify-center gap-2 transition-colors cursor-pointer"
-              >
-                <Camera className="w-4 h-4" /> Escanear Siguiente Equipo
-              </button>
             </div>
           </div>
         </div>,
@@ -654,7 +656,11 @@ export default function AdminEquipos() {
                     const code = unmatchedCodeModal;
                     setUnmatchedCodeModal(null);
                     resetForm();
-                    setFormData(prev => ({ ...prev, name: code.length < 30 ? code : 'NUEVO-EQUIPO' }));
+                    setFormData(prev => ({ 
+                      ...prev, 
+                      name: code.length < 30 ? code : 'NUEVO-EQUIPO',
+                      qr_code: code 
+                    }));
                     setIsModalOpen(true);
                   }}
                   className="w-full py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-bold rounded-xl text-xs transition-colors flex items-center justify-center gap-2 shadow-md cursor-pointer"
@@ -693,7 +699,6 @@ export default function AdminEquipos() {
 
             <div className="p-6 flex flex-col items-center">
               
-              {/* Tarjeta de visualización de Etiqueta */}
               <div className="bg-white p-5 rounded-2xl shadow-xl border-2 border-slate-900 w-full max-w-[260px] text-center">
                 <div className="text-[10px] font-black tracking-widest uppercase text-slate-700 border-b-2 border-slate-900 pb-1 mb-2">
                   Vigilancia Digital
@@ -707,30 +712,40 @@ export default function AdminEquipos() {
 
                 <div id="qr-svg-container" className="flex justify-center p-2 bg-white rounded-xl">
                   <QRCodeSVG 
-                    value={JSON.stringify({ id: showQR.id, n: showQR.name, t: showQR.type })} 
+                    value={JSON.stringify({ 
+                      qr: showQR.qr_code || showQR.id,
+                      id: showQR.id, 
+                      n: showQR.name, 
+                      t: showQR.type,
+                      z: showQR.zones?.name || ''
+                    })} 
                     size={170}
                     level={"H"}
                     includeMargin={false}
                   />
                 </div>
 
-                {/* Canvas oculto para descarga PNG */}
                 <div className="hidden">
                   <QRCodeCanvas 
                     id="qr-canvas-download"
-                    value={JSON.stringify({ id: showQR.id, n: showQR.name, t: showQR.type })}
+                    value={JSON.stringify({ 
+                      qr: showQR.qr_code || showQR.id,
+                      id: showQR.id, 
+                      n: showQR.name, 
+                      t: showQR.type,
+                      z: showQR.zones?.name || ''
+                    })}
                     size={512}
                     level={"H"}
                     includeMargin={true}
                   />
                 </div>
 
-                <div className="mt-2 pt-2 border-t border-dashed border-slate-400 text-[10px] font-mono text-slate-600">
-                  IP: {showQR.ip || showQR.ip_address || 'DHCP'}
+                <div className="mt-2 pt-2 border-t border-dashed border-slate-400 text-[10px] font-mono text-slate-700 font-bold truncate">
+                  {showQR.qr_code || showQR.id}
                 </div>
               </div>
 
-              {/* Botones de Impresión y Descarga */}
               <div className="flex w-full gap-2.5 mt-6">
                 <button 
                   onClick={printQR} 
@@ -758,7 +773,6 @@ export default function AdminEquipos() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in">
           <div className="bg-[#0f172a] rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl border border-cyan-800/60 max-h-[92vh] flex flex-col">
             
-            {/* Header Modal */}
             <div className="p-4 sm:p-5 border-b border-slate-800 flex justify-between items-center bg-[#0a1128]">
               <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
                 {editingId ? <Edit2 className="w-5 h-5 text-cyan-400" /> : <Monitor className="w-5 h-5 text-cyan-400" />}
@@ -769,7 +783,6 @@ export default function AdminEquipos() {
               </button>
             </div>
 
-            {/* Formulario */}
             <form onSubmit={(e) => handleSaveEquipo(e, false)} autoComplete="off" className="p-5 sm:p-6 overflow-y-auto space-y-4">
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -793,16 +806,31 @@ export default function AdminEquipos() {
                     name="type" 
                     value={formData.type} 
                     onChange={handleChange} 
-                    className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl outline-none text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-sm"
+                    className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl outline-none text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-sm cursor-pointer"
                   >
                     <option>Computadora</option>
                     <option>Servidor</option>
                     <option>Cámara de Seguridad</option>
+                    <option>DVR / NVR</option>
                     <option>Impresora</option>
                     <option>Router / Switch</option>
                     <option>Otro</option>
                   </select>
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">
+                  Código QR / Activo Único <span className="text-slate-500 font-normal">(Auto-generado si se deja en blanco)</span>
+                </label>
+                <input 
+                  name="qr_code" 
+                  value={formData.qr_code} 
+                  onChange={handleChange} 
+                  type="text" 
+                  placeholder={formData.name ? generateEquipoQRCode(formData.name, zones.find(z => z.id === formData.zone_id)?.name) : "Ej. VD-SABANA-PC-CAJA-01"} 
+                  className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl outline-none text-cyan-400 placeholder-slate-600 focus:border-cyan-500 font-mono text-sm uppercase" 
+                />
               </div>
 
               <div>
@@ -830,7 +858,6 @@ export default function AdminEquipos() {
                   />
                 </div>
 
-                {/* Sucursal / Zona con Creación Rápida */}
                 <div>
                   <div className="flex justify-between items-center mb-1">
                     <label className="block text-xs font-bold text-slate-300">Sucursal / Zona *</label>
@@ -848,7 +875,7 @@ export default function AdminEquipos() {
                       name="zone_id" 
                       value={formData.zone_id} 
                       onChange={handleChange} 
-                      className="flex-1 px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl outline-none text-white focus:border-cyan-500 text-sm"
+                      className="flex-1 px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl outline-none text-white focus:border-cyan-500 text-sm cursor-pointer"
                     >
                       <option value="">Selecciona una zona...</option>
                       {zones.map(z => <option key={z.id} value={z.id}>{z.name}</option>)}
@@ -872,7 +899,7 @@ export default function AdminEquipos() {
                   name="status" 
                   value={formData.status} 
                   onChange={handleChange} 
-                  className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl outline-none text-white focus:border-cyan-500 text-sm"
+                  className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl outline-none text-white focus:border-cyan-500 text-sm cursor-pointer"
                 >
                   <option value="Activo">Activo (Operativo)</option>
                   <option value="Mantenimiento">Mantenimiento</option>
@@ -885,7 +912,7 @@ export default function AdminEquipos() {
                 <div className="bg-white p-2.5 rounded-xl shrink-0">
                   <QRCodeSVG 
                     value={JSON.stringify({ 
-                      id: editingId || 'nuevo', 
+                      qr: formData.qr_code || generateEquipoQRCode(formData.name, zones.find(z => z.id === formData.zone_id)?.name),
                       n: formData.name || 'SIN-NOMBRE', 
                       t: formData.type 
                     })} 
@@ -895,10 +922,10 @@ export default function AdminEquipos() {
                 <div className="text-center sm:text-left">
                   <div className="flex items-center justify-center sm:justify-start gap-1.5 text-cyan-400 text-xs font-bold mb-1">
                     <Sparkles className="w-3.5 h-3.5" />
-                    Generación Automática de QR de Inventario
+                    Código QR Único Anti-Duplicados
                   </div>
                   <p className="text-xs text-slate-400">
-                    Al guardar este equipo podrás <strong>imprimir la etiqueta QR de inmediato</strong> para pegarla directamente en el gabinete o monitor del artículo.
+                    Este equipo quedará registrado de forma unívoca con su código QR. Si vuelves a registrarlo o escanearlo, el sistema actualizará sus datos en lugar de duplicarlo.
                   </p>
                 </div>
               </div>
@@ -1014,7 +1041,7 @@ export default function AdminEquipos() {
           <table className="min-w-full divide-y divide-slate-800">
             <thead className="bg-[#0a1128]">
               <tr>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-widest">Equipo</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-widest">Equipo y Código QR</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-widest">Red / IP</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-widest">Sucursal / Zona</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-widest">Estado</th>
@@ -1030,7 +1057,12 @@ export default function AdminEquipos() {
                         {equipo.type === 'Servidor' ? <Server className="w-5 h-5" /> : <Monitor className="w-5 h-5" />}
                       </div>
                       <div>
-                        <div className="font-bold text-white text-sm">{equipo.name}</div>
+                        <div className="font-bold text-white text-sm flex items-center gap-2">
+                          <span>{equipo.name}</span>
+                          <span className="font-mono text-[10px] text-cyan-400 bg-cyan-950/70 px-2 py-0.5 rounded border border-cyan-800/60 font-semibold">
+                            {equipo.qr_code || equipo.id}
+                          </span>
+                        </div>
                         <div className="text-xs text-slate-400 mt-0.5">{equipo.type} {equipo.description ? `• ${equipo.description}` : ''}</div>
                       </div>
                     </div>
@@ -1079,6 +1111,39 @@ export default function AdminEquipos() {
                   </td>
                 </tr>
               ))}
+
+              {filteredEquipos.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="py-12 px-6 text-center">
+                    <div className="flex flex-col items-center justify-center gap-3">
+                      <div className="p-3 bg-slate-900 text-slate-400 rounded-2xl border border-slate-800">
+                        <Monitor className="w-8 h-8 text-slate-500" />
+                      </div>
+                      <div className="text-slate-300 font-bold text-sm">
+                        {searchTerm ? `No se encontraron equipos con la búsqueda "${searchTerm}"` : 'No hay equipos registrados en esta sucursal'}
+                      </div>
+                      <p className="text-slate-500 text-xs max-w-sm">
+                        {searchTerm ? 'Intenta buscar con otro término o limpia los filtros.' : 'Registra tus equipos para generar sus etiquetas QR y controlar el inventario.'}
+                      </p>
+                      {searchTerm ? (
+                        <button 
+                          onClick={() => { setSearchTerm(''); setSelectedZoneFilter('all'); }}
+                          className="mt-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-cyan-400 font-bold rounded-xl text-xs flex items-center gap-1.5 border border-slate-700 cursor-pointer"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" /> Limpiar filtros
+                        </button>
+                      ) : (
+                        <button 
+                          onClick={() => { resetForm(); setIsModalOpen(true); }}
+                          className="mt-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-md cursor-pointer"
+                        >
+                          <Plus className="w-3.5 h-3.5" /> Registrar Primer Equipo
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -1087,17 +1152,20 @@ export default function AdminEquipos() {
         <div className="md:hidden divide-y divide-slate-800">
           {filteredEquipos.map((equipo) => (
             <div key={equipo.id} className="p-4 hover:bg-slate-800/40 transition-colors flex flex-col gap-3">
-              <div className="flex justify-between items-start">
-                <div className="flex items-center gap-3">
-                  <div className="p-2.5 bg-slate-900 text-cyan-400 rounded-xl border border-slate-700/80">
+              <div className="flex justify-between items-start gap-2">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="p-2.5 bg-slate-900 text-cyan-400 rounded-xl border border-slate-700/80 shrink-0">
                     {equipo.type === 'Servidor' ? <Server className="w-5 h-5" /> : <Monitor className="w-5 h-5" />}
                   </div>
-                  <div>
-                    <div className="font-bold text-white text-sm">{equipo.name}</div>
-                    <div className="text-xs text-slate-400 mt-0.5">{equipo.type}</div>
+                  <div className="min-w-0">
+                    <div className="font-bold text-white text-sm truncate">{equipo.name}</div>
+                    <div className="text-xs text-slate-400 mt-0.5 truncate">{equipo.type}</div>
+                    <div className="font-mono text-[10px] text-cyan-400 mt-0.5 truncate font-bold">
+                      {equipo.qr_code || equipo.id}
+                    </div>
                   </div>
                 </div>
-                <div className="flex gap-1.5">
+                <div className="flex gap-1.5 shrink-0">
                   <button 
                     onClick={() => setShowQR(equipo)} 
                     className="p-2 text-cyan-400 bg-cyan-950/60 rounded-xl border border-cyan-800/50 cursor-pointer"
@@ -1135,9 +1203,29 @@ export default function AdminEquipos() {
             </div>
           ))}
 
-          {filteredEquipos.length === 0 && !loading && (
-            <div className="p-12 text-center text-slate-400 text-sm">
-              No se encontraron equipos {searchTerm ? `con la búsqueda "${searchTerm}"` : 'registrados'}.
+          {filteredEquipos.length === 0 && (
+            <div className="p-8 text-center text-slate-400 text-xs flex flex-col items-center gap-3">
+              <div className="p-3 bg-slate-900 text-slate-400 rounded-2xl border border-slate-800">
+                <Monitor className="w-6 h-6 text-slate-500" />
+              </div>
+              <div>
+                {searchTerm ? `No se encontraron equipos con "${searchTerm}"` : 'No hay equipos registrados.'}
+              </div>
+              {searchTerm ? (
+                <button 
+                  onClick={() => { setSearchTerm(''); setSelectedZoneFilter('all'); }}
+                  className="px-3 py-1.5 bg-slate-800 text-cyan-400 font-bold rounded-xl text-xs border border-slate-700 cursor-pointer"
+                >
+                  Limpiar búsqueda
+                </button>
+              ) : (
+                <button 
+                  onClick={() => { resetForm(); setIsModalOpen(true); }}
+                  className="px-4 py-2 bg-blue-600 text-white font-bold rounded-xl text-xs cursor-pointer"
+                >
+                  + Registrar Equipo
+                </button>
+              )}
             </div>
           )}
         </div>

@@ -1,10 +1,11 @@
-﻿import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import TicketForm from './TicketForm';
 import ClientPasswords from './ClientPasswords';
 import { LogOut, Ticket, Lock, UserCircle, ChevronDown, Building2, CheckCircle2, Clock, AlertCircle, ListOrdered, X, Camera, Download, Maximize2 } from 'lucide-react';
 import { subscribeToTickets, getLocalTickets } from './lib/ticketStorage';
 import { playSuccessChime } from './lib/notificationAudio';
+import Logo from './components/Logo';
 
 function AppClient() {
   const navigate = useNavigate();
@@ -60,13 +61,11 @@ function AppClient() {
 
     const unsubscribe = subscribeToTickets(
       (newTicket) => {
-        // Si la sucursal envi un ticket, refrescar lista
         loadMyTickets();
       },
       (updatedId, newStatus, ticketObj) => {
         loadMyTickets();
 
-        // Notificar si la incidencia fue resuelta y pertenece a esta sucursal
         if (newStatus === 'Resuelto') {
           const userBranch = (clientUser.branch || clientUser.name || '').toLowerCase();
           const ticketBranch = ((ticketObj?.zone || ticketObj?.user || '')).toLowerCase();
@@ -82,7 +81,7 @@ function AppClient() {
             if ("Notification" in window && Notification.permission === "granted") {
               new Notification('Incidencia Solucionada', {
                 body: `Tu reporte #${updatedId} ha sido resuelto por soporte.`,
-                icon: '/logo.jpg'
+                icon: '/logo.svg'
               });
             }
           }
@@ -103,16 +102,19 @@ function AppClient() {
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem('client_user');
-    localStorage.removeItem('user_role');
-    if (!isAdmin) {
-      localStorage.removeItem('admin_user');
+    if (isAdmin) {
+      navigate('/admin/tickets');
+    } else {
+      localStorage.removeItem('client_user');
+      localStorage.removeItem('user_role');
+      navigate('/');
     }
-    navigate('/');
   };
 
   const hasPasswords = clientUser?.has_password_access;
@@ -123,39 +125,37 @@ function AppClient() {
         return 'bg-emerald-950/60 text-emerald-400 border border-emerald-800';
       case 'En Progreso':
         return 'bg-blue-950/60 text-blue-400 border border-blue-800';
-      case 'Archivado':
-        return 'bg-slate-800 text-slate-400 border border-slate-700';
       default:
         return 'bg-orange-950/60 text-orange-400 border border-orange-800';
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#0a1128] py-4 sm:py-8 md:py-12 px-3 sm:px-6 lg:px-8 relative overflow-hidden font-sans">
+    <div className="min-h-screen bg-[#0a1128] text-white p-3 sm:p-6 lg:p-8 font-sans relative overflow-x-hidden">
       
-      {/* Aviso Flotante de Incidencia Resuelta para la Sucursal */}
+      {/* Toast de Notificación cuando se Resuelve Incidencia */}
       {resolvedNotice && (
-        <div className="fixed top-4 right-4 left-4 sm:left-auto sm:w-96 z-50 bg-[#0f172a] border-2 border-emerald-500 rounded-2xl p-4 shadow-[0_0_35px_rgba(16,185,129,0.35)] animate-in slide-in-from-top-4 flex items-start gap-3 text-white">
+        <div className="fixed top-5 right-5 left-5 sm:left-auto sm:w-96 z-50 bg-[#0f172a] border-2 border-emerald-500/60 rounded-2xl p-4 shadow-[0_0_30px_rgba(16,185,129,0.3)] animate-in slide-in-from-top-4 flex items-start gap-3">
           <div className="p-2 bg-emerald-500/20 text-emerald-400 rounded-xl shrink-0">
             <CheckCircle2 className="w-6 h-6 animate-pulse" />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between gap-1">
               <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-800">
-                Incidencia Resuelta!
+                ¡Incidencia Solucionada!
               </span>
               <button 
                 onClick={() => setResolvedNotice(null)}
-                className="text-slate-400 hover:text-white p-1"
+                className="text-slate-400 hover:text-white p-1 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <h4 className="text-sm font-bold text-white mt-1">
-              #{resolvedNotice.id}: <span className="font-normal text-slate-200">{resolvedNotice.title}</span>
+            <h4 className="text-sm font-bold text-white mt-1 truncate">
+              Ticket #{resolvedNotice.id}: <span className="font-normal text-slate-300">{resolvedNotice.title}</span>
             </h4>
-            <p className="text-xs text-emerald-300/90 mt-1">
-              El equipo de soporte tcnico ha concluido y cerrado la atencin de este caso.
+            <p className="text-xs text-slate-400 mt-1">
+              El equipo de soporte técnico ha concluido este caso.
             </p>
           </div>
         </div>
@@ -174,32 +174,23 @@ function AppClient() {
             className="flex items-center gap-3 sm:gap-4 cursor-pointer hover:opacity-90 transition-opacity" 
             onClick={() => setActiveView('tickets')}
           >
-            <div className="relative w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 bg-gradient-to-br from-blue-900 to-slate-900 rounded-2xl flex items-center justify-center border border-blue-500/30 shadow-[0_0_30px_rgba(59,130,246,0.3)] overflow-hidden p-0.5 shrink-0">
-              <img src="/logo.jpg" alt="Vigilancia Digital" className="w-full h-full object-cover rounded-[14px]" />
-            </div>
-            <div className="text-left">
-              <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white to-blue-200 tracking-tight">
-                Vigilancia Digital
-              </h1>
-              <div className="flex items-center gap-2 mt-0.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
-                <p className="text-blue-300 text-xs sm:text-sm font-medium tracking-[0.15em] uppercase">
-                  Plataforma IT
-                </p>
-              </div>
-            </div>
+            <Logo variant="sidebar" subtitle="Plataforma IT" />
           </div>
           
-          {/* Menu de Perfil y Navegacin */}
+          {/* Menu de Perfil y Navegación */}
           <div className="relative w-full sm:w-auto flex items-center justify-end gap-2" ref={menuRef}>
             
-            {/* Botn para alternar a Historial de mis tickets */}
+            {/* Botón para alternar a Historial de mis tickets */}
             <button
               onClick={() => {
                 loadMyTickets();
                 setActiveView(activeView === 'my_tickets' ? 'tickets' : 'my_tickets');
               }}
-              className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border ${activeView === 'my_tickets' ? 'bg-cyan-600 text-white border-cyan-500 shadow-md' : 'bg-slate-800/80 text-slate-300 border-slate-700 hover:text-white'}`}
+              className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border cursor-pointer ${
+                activeView === 'my_tickets' 
+                  ? 'bg-cyan-600 text-white border-cyan-500 shadow-md' 
+                  : 'bg-slate-800/80 text-slate-300 border-slate-700 hover:text-white'
+              }`}
             >
               <ListOrdered className="w-4 h-4 text-cyan-400" />
               <span>Mis Reportes ({myTickets.length})</span>
@@ -208,7 +199,7 @@ function AppClient() {
             {/* Profile Dropdown */}
             <button 
               onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-              className="flex items-center gap-2.5 p-1.5 sm:p-2 sm:pr-4 bg-[#0f172a]/90 hover:bg-[#0f172a] border border-slate-700/60 rounded-xl transition-all shadow-lg backdrop-blur-md"
+              className="flex items-center gap-2.5 p-1.5 sm:p-2 sm:pr-4 bg-[#0f172a]/90 hover:bg-[#0f172a] border border-slate-700/60 rounded-xl transition-all shadow-lg backdrop-blur-md cursor-pointer"
             >
               <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-gradient-to-br from-cyan-600 to-blue-600 flex items-center justify-center font-bold text-white text-xs shadow-inner shrink-0">
                 {clientName.charAt(0).toUpperCase()}
@@ -239,7 +230,7 @@ function AppClient() {
                       setActiveView('tickets');
                       setIsProfileMenuOpen(false);
                     }}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-colors ${activeView === 'tickets' ? 'bg-cyan-900/40 text-cyan-400' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-colors cursor-pointer ${activeView === 'tickets' ? 'bg-cyan-900/40 text-cyan-400' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}
                   >
                     <Ticket className="w-4 h-4" /> Nuevo Ticket
                   </button>
@@ -250,7 +241,7 @@ function AppClient() {
                       setActiveView('my_tickets');
                       setIsProfileMenuOpen(false);
                     }}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-colors ${activeView === 'my_tickets' ? 'bg-cyan-900/40 text-cyan-400' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-colors cursor-pointer ${activeView === 'my_tickets' ? 'bg-cyan-900/40 text-cyan-400' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}
                   >
                     <ListOrdered className="w-4 h-4" /> Mis Incidencias
                   </button>
@@ -261,9 +252,9 @@ function AppClient() {
                         setActiveView('passwords');
                         setIsProfileMenuOpen(false);
                       }}
-                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-colors ${activeView === 'passwords' ? 'bg-blue-900/30 text-blue-400' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-colors cursor-pointer ${activeView === 'passwords' ? 'bg-blue-900/30 text-blue-400' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}
                     >
-                      <Lock className="w-4 h-4" /> Mis Contraseas
+                      <Lock className="w-4 h-4" /> Mis Contraseñas
                     </button>
                   )}
                 </div>
@@ -271,9 +262,9 @@ function AppClient() {
                 <div className="p-2 border-t border-slate-800 bg-[#0a1128]/50">
                   <button 
                     onClick={handleLogout}
-                    className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs sm:text-sm font-bold text-red-400 hover:bg-red-900/20 transition-colors"
+                    className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs sm:text-sm font-bold text-red-400 hover:bg-red-900/20 transition-colors cursor-pointer"
                   >
-                    <span>{isAdmin ? 'Volver al Admin' : 'Cerrar Sesin'}</span>
+                    <span>{isAdmin ? 'Volver al Admin' : 'Cerrar Sesión'}</span>
                     <LogOut className="w-4 h-4" />
                   </button>
                 </div>
@@ -299,7 +290,7 @@ function AppClient() {
                 </div>
                 <button
                   onClick={() => setActiveView('tickets')}
-                  className="px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-bold text-xs rounded-xl shadow-md"
+                  className="px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-bold text-xs rounded-xl shadow-md cursor-pointer"
                 >
                   + Nueva Incidencia
                 </button>
@@ -307,7 +298,7 @@ function AppClient() {
 
               {myTickets.length === 0 ? (
                 <div className="text-center py-12 text-slate-500 text-sm">
-                  Esta cuenta an no ha registrado incidencias.
+                  Esta cuenta aún no ha registrado incidencias.
                 </div>
               ) : (
                 <div className="divide-y divide-slate-800">
@@ -322,7 +313,7 @@ function AppClient() {
                           {ticket.image && (
                             <button
                               onClick={() => setClientLightboxPhoto(ticket.image)}
-                              className="inline-flex items-center gap-1 text-[10px] font-bold text-cyan-300 bg-cyan-950/80 border border-cyan-800/80 px-2 py-0.5 rounded-full hover:bg-cyan-900 transition-colors"
+                              className="inline-flex items-center gap-1 text-[10px] font-bold text-cyan-300 bg-cyan-950/80 border border-cyan-800/80 px-2 py-0.5 rounded-full hover:bg-cyan-900 transition-colors cursor-pointer"
                             >
                               <Camera className="w-3 h-3" /> Ver Foto
                             </button>
@@ -330,7 +321,7 @@ function AppClient() {
                         </div>
                         <h4 className="text-sm font-semibold text-white mt-1">{ticket.title}</h4>
                         <p className="text-xs text-slate-400 line-clamp-1 mt-0.5">{ticket.description}</p>
-                        <div className="text-[11px] text-slate-500 mt-1">{ticket.date}  {ticket.category}</div>
+                        <div className="text-[11px] text-slate-500 mt-1">{ticket.date} • {ticket.category}</div>
                       </div>
 
                       <div className="text-right shrink-0">
@@ -340,7 +331,7 @@ function AppClient() {
                           </span>
                         ) : ticket.status === 'En Progreso' ? (
                           <span className="inline-flex items-center gap-1 text-xs font-bold text-blue-400 bg-blue-950/40 px-3 py-1.5 rounded-xl border border-blue-800">
-                            <Clock className="w-4 h-4" /> En Atencin
+                            <Clock className="w-4 h-4" /> En Atención
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 text-xs font-bold text-orange-400 bg-orange-950/40 px-3 py-1.5 rounded-xl border border-orange-800">
@@ -372,7 +363,7 @@ function AppClient() {
               </span>
               <button 
                 onClick={() => setClientLightboxPhoto(null)}
-                className="p-1 rounded-lg bg-slate-800 text-slate-400 hover:text-white"
+                className="p-1 rounded-lg bg-slate-800 text-slate-400 hover:text-white cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>

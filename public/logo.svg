@@ -1,0 +1,26 @@
+﻿<svg width="200" height="200" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="shieldGrad" x1="10" y1="10" x2="90" y2="90" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stopColor="#0284c7" />
+      <stop offset="50%" stopColor="#0369a1" />
+      <stop offset="100%" stopColor="#082f49" />
+    </linearGradient>
+    <linearGradient id="shieldBorder" x1="0" y1="0" x2="100" y2="100" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stopColor="#38bdf8" />
+      <stop offset="50%" stopColor="#0284c7" />
+      <stop offset="100%" stopColor="#0ea5e9" />
+    </linearGradient>
+    <radialGradient id="lensGlow" cx="50" cy="50" r="30" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stopColor="#e0f2fe" />
+      <stop offset="40%" stopColor="#0284c7" />
+      <stop offset="80%" stopColor="#0c4a6e" />
+      <stop offset="100%" stopColor="#020617" />
+    </radialGradient>
+  </defs>
+  <path d="M50 8 L85 22 V50 C85 71 69 88 50 94 C31 88 15 71 15 50 V22 Z" fill="url(#shieldGrad)" stroke="url(#shieldBorder)" stroke-width="3.5" stroke-linejoin="round"/>
+  <circle cx="50" cy="50" r="24" fill="url(#lensGlow)" stroke="#38bdf8" stroke-width="2.5"/>
+  <circle cx="50" cy="50" r="15" fill="none" stroke="#ffffff" stroke-width="1.5" stroke-dasharray="4 2" stroke-opacity="0.8"/>
+  <circle cx="50" cy="50" r="7" fill="#0284c7"/>
+  <circle cx="50" cy="50" r="3.5" fill="#ffffff"/>
+  <path d="M50 20 V25 M50 75 V80 M20 50 H25 M75 50 H80" stroke="#38bdf8" stroke-width="3" stroke-linecap="round"/>
+</svg>

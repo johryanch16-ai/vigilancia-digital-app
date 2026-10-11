@@ -1,9 +1,10 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Building2, MapPin, Tags, Settings, LogOut, Bell, Search, Menu, X, Monitor, Archive, Users, ExternalLink, ShieldAlert } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { subscribeToTickets } from '../lib/ticketStorage';
 import { playNotificationSound } from '../lib/notificationAudio';
+import Logo from '../components/Logo';
 
 export default function AdminLayout() {
   const navigate = useNavigate();
@@ -30,13 +31,9 @@ export default function AdminLayout() {
   // Escuchar tickets en tiempo real (Vía BroadcastChannel, eventos locales y Supabase)
   useEffect(() => {
     const unsubscribe = subscribeToTickets((newTicket) => {
-      // 1. Incrementar contador de notificaciones
       setNotifications(prev => prev + 1);
-
-      // 2. Reproducir tono sintetizado de alerta técnica
       playNotificationSound();
 
-      // 3. Mostrar banner flotante para Johryan / Johnny
       const branchName = newTicket.zone || newTicket.user || 'Sucursal';
       setLatestAlert({
         id: newTicket.id,
@@ -45,16 +42,14 @@ export default function AdminLayout() {
         priority: newTicket.priority
       });
 
-      // Auto-ocultar banner después de 7 segundos
       setTimeout(() => {
         setLatestAlert(prev => (prev?.id === newTicket.id ? null : prev));
       }, 7000);
 
-      // 4. Notificación de escritorio del navegador
       if ("Notification" in window && Notification.permission === "granted") {
         new Notification(`🚨 Incidencia en ${branchName}`, {
           body: `Asunto: ${newTicket.title}\nSeveridad: ${newTicket.priority || 'Media'}`,
-          icon: '/logo.jpg'
+          icon: '/logo.svg'
         });
       }
     });
@@ -64,7 +59,7 @@ export default function AdminLayout() {
     };
   }, []);
 
-  let navigation = [
+  const navigation = [
     { name: 'Dashboard', to: '/admin/tickets', icon: LayoutDashboard },
     { name: 'Tickets por Sucursal', to: '/admin/branch-tickets', icon: Building2 },
     { name: 'Bitácora y Concluidos', to: '/admin/bitacora', icon: Archive },
@@ -105,7 +100,7 @@ export default function AdminLayout() {
                   setLatestAlert(null);
                   navigate('/admin/tickets');
                 }}
-                className="text-xs font-bold px-3 py-1 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg transition-colors"
+                className="text-xs font-bold px-3 py-1 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg transition-colors cursor-pointer"
               >
                 Ver en Dashboard
               </button>
@@ -116,15 +111,10 @@ export default function AdminLayout() {
 
       {/* Sidebar Desktop */}
       <div className="hidden md:flex md:w-64 md:flex-col bg-slate-900 border-r border-slate-800 shrink-0">
-        <div className="h-20 flex items-center px-6 border-b border-slate-800">
-          <div className="flex items-center gap-3">
-            <img src="/logo.jpg" alt="Logo" className="w-10 h-10 rounded-xl object-cover border border-slate-700 shadow-md" />
-            <div>
-              <h1 className="font-extrabold text-white tracking-tight leading-tight text-sm">
-                Vigilancia<br/><span className="text-blue-400">Digital S.A.</span>
-              </h1>
-            </div>
-          </div>
+        
+        {/* Header con Logo Profesional Vectorial */}
+        <div className="h-20 flex items-center px-5 border-b border-slate-800">
+          <Logo variant="sidebar" subtitle="S.A." />
         </div>
 
         <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
@@ -136,12 +126,12 @@ export default function AdminLayout() {
                 className={({ isActive }) =>
                   `group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all ${
                     isActive
-                      ? (item.isDanger ? 'bg-red-900/50 text-red-300 border border-red-800 shadow-lg' : 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-[0_0_15px_rgba(6,182,212,0.3)] font-bold')
-                      : (item.isDanger ? 'text-red-400 hover:bg-red-950/30' : 'text-slate-400 hover:bg-slate-800/80 hover:text-white')
+                      ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-[0_0_15px_rgba(6,182,212,0.3)] font-bold'
+                      : 'text-slate-400 hover:bg-slate-800/80 hover:text-white'
                   }`
                 }
               >
-                <item.icon className={`mr-3 flex-shrink-0 h-5 w-5 ${item.isDanger ? 'text-red-400' : ''}`} />
+                <item.icon className="mr-3 flex-shrink-0 h-5 w-5" />
                 {item.name}
               </NavLink>
             ))}
@@ -151,7 +141,7 @@ export default function AdminLayout() {
         <div className="flex-shrink-0 border-t border-slate-800 p-4 space-y-3 bg-[#0a1128]/50">
           <button 
             onClick={() => navigate('/cliente')} 
-            className="w-full flex items-center justify-between px-3 py-2 text-slate-400 hover:text-cyan-400 hover:bg-slate-800/60 rounded-xl transition-all text-sm font-medium"
+            className="w-full flex items-center justify-between px-3 py-2 text-slate-400 hover:text-cyan-400 hover:bg-slate-800/60 rounded-xl transition-all text-sm font-medium cursor-pointer"
           >
             <div className="flex items-center">
               <ExternalLink className="h-4 w-4 mr-2.5 text-cyan-400" />
@@ -165,7 +155,7 @@ export default function AdminLayout() {
               localStorage.removeItem('user_role');
               navigate('/');
             }} 
-            className="w-full flex items-center px-3 py-2 text-red-400 hover:text-red-300 hover:bg-red-950/20 rounded-xl transition-all text-sm font-medium"
+            className="w-full flex items-center px-3 py-2 text-red-400 hover:text-red-300 hover:bg-red-950/20 rounded-xl transition-all text-sm font-medium cursor-pointer"
           >
             <LogOut className="h-4 w-4 mr-2.5" />
             <span>Cerrar Sesión</span>
@@ -184,15 +174,14 @@ export default function AdminLayout() {
             <div className="flex items-center gap-3">
               <button 
                 onClick={() => setIsMobileMenuOpen(true)}
-                className="md:hidden p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 focus:outline-none"
+                className="md:hidden p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 focus:outline-none cursor-pointer"
                 aria-label="Abrir Menú"
               >
                 <Menu className="h-6 w-6" />
               </button>
               
-              <div className="md:hidden flex items-center gap-2">
-                <img src="/logo.jpg" alt="Logo" className="w-8 h-8 rounded-lg object-cover border border-slate-700" />
-                <span className="font-bold text-white text-sm">Vigilancia Digital</span>
+              <div className="md:hidden">
+                <Logo variant="sidebar" className="scale-90 origin-left" subtitle="S.A." />
               </div>
             </div>
 
@@ -201,7 +190,7 @@ export default function AdminLayout() {
               <button 
                 onClick={() => setNotifications(0)}
                 title={notifications > 0 ? `${notifications} incidencias nuevas (clic para limpiar)` : 'Sin notificaciones pendientes'}
-                className="relative bg-slate-800/80 p-2 rounded-xl text-slate-300 hover:text-white hover:bg-slate-700 transition-colors"
+                className="relative bg-slate-800/80 p-2 rounded-xl text-slate-300 hover:text-white hover:bg-slate-700 transition-colors cursor-pointer"
               >
                 <Bell className="h-5 w-5" />
                 {notifications > 0 && (
@@ -211,7 +200,7 @@ export default function AdminLayout() {
                 )}
               </button>
 
-              {/* Admin Badge (Johryan o Johnny) */}
+              {/* Admin Badge */}
               <div className="flex items-center gap-2.5 px-2.5 py-1.5 bg-slate-800/80 border border-slate-700 rounded-xl">
                 <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-cyan-600 to-blue-600 flex items-center justify-center font-bold text-white text-xs shadow-inner">
                   {adminUser ? adminUser.charAt(0).toUpperCase() : 'A'}
@@ -235,16 +224,10 @@ export default function AdminLayout() {
 
             <div className="relative flex-1 flex flex-col max-w-xs w-full pt-5 pb-4 bg-[#0f172a] border-r border-slate-800 z-10 shadow-2xl">
               <div className="flex items-center justify-between px-5 mb-5 pb-4 border-b border-slate-800">
-                <div className="flex items-center gap-3">
-                  <img src="/logo.jpg" alt="Logo" className="w-10 h-10 rounded-xl object-cover border border-slate-700" />
-                  <div>
-                    <h1 className="font-extrabold text-white text-sm">Vigilancia Digital</h1>
-                    <span className="text-xs text-blue-400 font-semibold">Panel de Control</span>
-                  </div>
-                </div>
+                <Logo variant="sidebar" subtitle="Panel Control" />
                 <button 
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800"
+                  className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -259,8 +242,8 @@ export default function AdminLayout() {
                     className={({ isActive }) =>
                       `group flex items-center px-3.5 py-3 text-sm font-medium rounded-xl transition-all ${
                         isActive
-                          ? (item.isDanger ? 'bg-red-900/50 text-red-300 border border-red-800' : 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-bold')
-                          : (item.isDanger ? 'text-red-400 hover:bg-red-950/30' : 'text-slate-400 hover:bg-slate-800 hover:text-white')
+                          ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-bold shadow-md'
+                          : 'text-slate-400 hover:bg-slate-800 hover:text-white'
                       }`
                     }
                   >
@@ -276,7 +259,7 @@ export default function AdminLayout() {
                     setIsMobileMenuOpen(false);
                     navigate('/cliente');
                   }} 
-                  className="w-full flex items-center px-3 py-2.5 text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800 rounded-xl"
+                  className="w-full flex items-center px-3 py-2.5 text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800 rounded-xl cursor-pointer"
                 >
                   <ExternalLink className="h-4 w-4 mr-3 text-cyan-400" /> Formulario Incidencias
                 </button>
@@ -286,7 +269,7 @@ export default function AdminLayout() {
                     localStorage.removeItem('user_role');
                     navigate('/');
                   }} 
-                  className="w-full flex items-center px-3 py-2.5 text-sm font-bold text-red-400 hover:bg-red-950/20 rounded-xl"
+                  className="w-full flex items-center px-3 py-2.5 text-sm font-bold text-red-400 hover:bg-red-950/20 rounded-xl cursor-pointer"
                 >
                   <LogOut className="h-4 w-4 mr-3" /> Cerrar Sesión
                 </button>

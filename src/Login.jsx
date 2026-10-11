@@ -1,8 +1,9 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Lock, User, AlertCircle, Eye, EyeOff, KeyRound, ArrowLeft, Building2, ChevronDown } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import { BRANCH_ACCOUNTS, BRANCH_PASSWORD, findBranchMatch } from './lib/branches';
+import Logo from './components/Logo';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -127,17 +128,7 @@ export default function Login() {
       </div>
 
       <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10 text-center">
-        <div className="flex justify-center">
-          <div className="relative w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-blue-900 to-slate-900 rounded-3xl flex items-center justify-center border border-blue-500/30 shadow-[0_0_40px_rgba(59,130,246,0.3)] overflow-hidden p-1">
-            <img src="/logo.jpg" alt="Vigilancia Digital" className="w-full h-full object-cover rounded-[20px]" />
-          </div>
-        </div>
-        <h2 className="mt-4 text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-          Vigilancia Digital S.A.
-        </h2>
-        <p className="mt-1 text-xs sm:text-sm text-blue-300 font-medium tracking-[0.2em] uppercase">
-          Plataforma de Operaciones IT
-        </p>
+        <Logo variant="login" subtitle="Plataforma de Operaciones IT" />
       </div>
 
       <div className="mt-6 sm:mx-auto sm:w-full sm:max-w-md relative z-10 px-2 sm:px-0">
@@ -167,7 +158,7 @@ export default function Login() {
                   <button
                     type="button"
                     onClick={() => setShowQuickAccess(!showQuickAccess)}
-                    className="text-[11px] text-cyan-400 hover:text-cyan-300 font-medium flex items-center gap-1"
+                    className="text-[11px] text-cyan-400 hover:text-cyan-300 font-medium flex items-center gap-1 cursor-pointer"
                   >
                     <Building2 className="w-3.5 h-3.5" />
                     {showQuickAccess ? 'Cerrar lista' : 'Ver sucursales'}
@@ -186,7 +177,7 @@ export default function Login() {
                           key={b.id}
                           type="button"
                           onClick={() => handleSelectQuickBranch(b)}
-                          className="px-2 py-1.5 text-left text-xs text-slate-200 bg-slate-800 hover:bg-cyan-950 hover:text-cyan-300 rounded-lg border border-slate-700 transition-colors truncate font-medium"
+                          className="px-2 py-1.5 text-left text-xs text-slate-200 bg-slate-800 hover:bg-cyan-950 hover:text-cyan-300 rounded-lg border border-slate-700 transition-colors truncate font-medium cursor-pointer"
                         >
                           {b.name}
                         </button>
@@ -227,7 +218,7 @@ export default function Login() {
                   <button 
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-500 hover:text-cyan-400 transition-colors focus:outline-none"
+                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-500 hover:text-cyan-400 transition-colors focus:outline-none cursor-pointer"
                   >
                     {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
@@ -239,7 +230,7 @@ export default function Login() {
                   <button 
                     type="button"
                     onClick={() => { setIsForgotMode(true); setError(''); setForgotMessage(''); }}
-                    className="font-medium text-cyan-400 hover:text-cyan-300 transition-colors"
+                    className="font-medium text-cyan-400 hover:text-cyan-300 transition-colors cursor-pointer"
                   >
                     ¿Olvidaste tu contraseña?
                   </button>
@@ -250,7 +241,7 @@ export default function Login() {
                 <button 
                   type="submit" 
                   disabled={loading}
-                  className="w-full flex justify-center items-center py-3.5 px-4 rounded-xl shadow-[0_0_20px_rgba(6,182,212,0.3)] text-sm font-bold text-white bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#0f172a] focus:ring-cyan-500 transition-all hover:shadow-[0_0_30px_rgba(6,182,212,0.5)] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full flex justify-center items-center py-3.5 px-4 rounded-xl shadow-[0_0_20px_rgba(6,182,212,0.3)] text-sm font-bold text-white bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#0f172a] focus:ring-cyan-500 transition-all hover:shadow-[0_0_30px_rgba(6,182,212,0.5)] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
                   {loading ? 'Verificando...' : 'Acceder al Sistema'}
                 </button>
@@ -289,14 +280,14 @@ export default function Login() {
                 <button 
                   type="submit" 
                   disabled={loading || !forgotUsername}
-                  className="w-full flex justify-center py-3.5 px-4 rounded-xl shadow-[0_0_20px_rgba(6,182,212,0.3)] text-sm font-bold text-white bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#0f172a] focus:ring-cyan-500 transition-all hover:shadow-[0_0_30px_rgba(6,182,212,0.5)] disabled:opacity-50"
+                  className="w-full flex justify-center py-3.5 px-4 rounded-xl shadow-[0_0_20px_rgba(6,182,212,0.3)] text-sm font-bold text-white bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#0f172a] focus:ring-cyan-500 transition-all hover:shadow-[0_0_30px_rgba(6,182,212,0.5)] disabled:opacity-50 cursor-pointer"
                 >
                   {loading ? 'Enviando...' : 'Solicitar Restablecimiento'}
                 </button>
                 <button 
                   type="button" 
                   onClick={() => setIsForgotMode(false)}
-                  className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-slate-600 rounded-xl text-sm font-bold text-slate-300 bg-slate-800/80 hover:bg-slate-700 transition-all"
+                  className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-slate-600 rounded-xl text-sm font-bold text-slate-300 bg-slate-800/80 hover:bg-slate-700 transition-all cursor-pointer"
                 >
                   <ArrowLeft className="w-4 h-4" /> Volver al Inicio
                 </button>

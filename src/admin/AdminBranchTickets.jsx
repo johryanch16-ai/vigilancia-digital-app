@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Building2, 
   Search, 
@@ -18,7 +18,10 @@ import {
   Check,
   Camera,
   Download,
-  Maximize2
+  Maximize2,
+  ChevronDown,
+  Layers,
+  Sparkles
 } from 'lucide-react';
 import { BRANCH_NAMES } from '../lib/branches.js';
 import { getLocalTickets, updateTicketData, deleteLocalTicket } from '../lib/ticketStorage.js';
@@ -28,11 +31,12 @@ export default function AdminBranchTickets() {
   const [tickets, setTickets] = useState([]);
   const [selectedBranch, setSelectedBranch] = useState('ALL'); // 'ALL' o nombre de sucursal
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterOnlyPending, setFilterOnlyPending] = useState(false);
   const [editingTicket, setEditingTicket] = useState(null);
   const [viewingPhoto, setViewingPhoto] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
 
-  // Formulario de edicin
+  // Formulario de edición
   const [editFormData, setEditFormData] = useState({
     title: '',
     description: '',
@@ -114,7 +118,7 @@ export default function AdminBranchTickets() {
   };
 
   const handleDelete = (id) => {
-    if (window.confirm(`Est seguro de eliminar el ticket #${id}? Esta accin lo remover de la lista.`)) {
+    if (window.confirm(`¿Está seguro de eliminar el ticket #${id}? Esta acción lo removerá de la lista.`)) {
       deleteLocalTicket(id);
       setTickets(prev => prev.filter(t => t.id !== id));
       showToast(`Ticket #${id} eliminado.`);
@@ -137,12 +141,25 @@ export default function AdminBranchTickets() {
     ).length;
   };
 
-  // Filtrar tickets segn sucursal y buscador
+  // Conteo de tickets activos/pendientes por sucursal
+  const getBranchActiveCount = (branchName) => {
+    return tickets.filter(t => 
+      ((t.zone && t.zone.toLowerCase() === branchName.toLowerCase()) ||
+       (t.user && t.user.toLowerCase() === branchName.toLowerCase())) &&
+      t.status !== 'Resuelto' && t.status !== 'Archivado'
+    ).length;
+  };
+
+  // Filtrar tickets según sucursal, buscador y estado
   const filteredTickets = tickets.filter(t => {
     if (selectedBranch !== 'ALL') {
       const matchBranch = (t.zone && t.zone.toLowerCase() === selectedBranch.toLowerCase()) ||
                           (t.user && t.user.toLowerCase() === selectedBranch.toLowerCase());
       if (!matchBranch) return false;
+    }
+
+    if (filterOnlyPending) {
+      if (t.status === 'Resuelto' || t.status === 'Archivado') return false;
     }
 
     if (!searchTerm) return true;
@@ -151,13 +168,14 @@ export default function AdminBranchTickets() {
       (t.id && t.id.toLowerCase().includes(term)) ||
       (t.title && t.title.toLowerCase().includes(term)) ||
       (t.description && t.description.toLowerCase().includes(term)) ||
-      (t.zone && t.zone.toLowerCase().includes(term))
+      (t.zone && t.zone.toLowerCase().includes(term)) ||
+      (t.category && t.category.toLowerCase().includes(term))
     );
   });
 
   const getPriorityBadge = (priority) => {
     switch (priority) {
-      case 'Crtica': case 'Critica': return 'bg-red-950/60 text-red-400 border border-red-800';
+      case 'Crítica': case 'Critica': return 'bg-red-950/60 text-red-400 border border-red-800';
       case 'Alta': return 'bg-orange-950/60 text-orange-400 border border-orange-800';
       case 'Media': return 'bg-blue-950/60 text-blue-400 border border-blue-800';
       default: return 'bg-slate-800 text-slate-300 border border-slate-700';
@@ -188,80 +206,167 @@ export default function AdminBranchTickets() {
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight flex items-center gap-2.5">
             <Building2 className="w-6 h-6 sm:w-7 sm:h-7 text-cyan-400" />
-            Tickets por Sucursal y Edicin Administrativa
+            Tickets por Sucursal y Edición Administrativa
           </h1>
           <p className="mt-1 text-xs sm:text-sm text-slate-400 font-medium">
-            Seleccione una sucursal para revisar sus incidencias con evidencia fotogrfica, corregir errores o resolver casos.
+            Selecciona cualquier sucursal para auditar incidencias, ver evidencias fotográficas y gestionar soluciones.
           </p>
         </div>
         <div className="flex items-center gap-2">
           <button 
             onClick={fetchTickets}
-            className="flex items-center gap-2 px-3.5 py-2 bg-[#0f172a] border border-slate-700 rounded-xl text-xs sm:text-sm font-bold text-slate-300 hover:bg-[#0a1128] transition-colors"
+            className="flex items-center gap-2 px-3.5 py-2 bg-[#0f172a] border border-slate-700 rounded-xl text-xs sm:text-sm font-bold text-slate-300 hover:bg-[#0a1128] transition-colors cursor-pointer"
           >
             <RefreshCw className="w-3.5 h-3.5 text-cyan-400" /> Sincronizar
           </button>
         </div>
       </div>
 
-      {/* Selector de Sucursales (Pestaas horizontales rpidas) */}
-      <div className="mb-6">
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin">
-          <button
-            onClick={() => setSelectedBranch('ALL')}
-            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all flex items-center gap-2 border ${
-              selectedBranch === 'ALL'
-                ? 'bg-cyan-600 text-white border-cyan-500 shadow-lg'
-                : 'bg-[#0f172a] text-slate-300 border-slate-800 hover:text-white'
-            }`}
-          >
-            <span>Todas las Cuentas</span>
-            <span className="px-2 py-0.5 rounded-md text-[11px] bg-black/30 font-mono">
-              {tickets.length}
-            </span>
-          </button>
-
-          {BRANCH_NAMES.map(branchName => {
-            const count = getBranchCount(branchName);
-            const isSelected = selectedBranch === branchName;
-            return (
-              <button
-                key={branchName}
-                onClick={() => setSelectedBranch(branchName)}
-                className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 border ${
-                  isSelected
-                    ? 'bg-cyan-600 text-white border-cyan-500 shadow-lg'
-                    : 'bg-[#0f172a] text-slate-300 border-slate-800 hover:text-white'
-                }`}
+      {/* SECCIÓN OPTIMIZADA DE SUCURSALES (SIN BARRA DE SCROLL HORIZONTAL / ADAPTATIVA) */}
+      <div className="bg-[#0f172a] border border-slate-800 rounded-2xl p-4 sm:p-5 mb-6 space-y-4 shadow-sm">
+        
+        {/* Barra superior de controles: Buscador y Selector rápido */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-slate-800/80">
+          
+          {/* Buscador reactivo */}
+          <div className="relative flex-1 max-w-md">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+              <Search className="h-4 w-4" />
+            </div>
+            <input 
+              type="text" 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Buscar por asunto, #ticket o detalle..." 
+              className="block w-full pl-9 pr-8 py-2 border border-slate-700 rounded-xl bg-slate-900 text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 text-xs sm:text-sm font-medium"
+            />
+            {searchTerm && (
+              <button 
+                onClick={() => setSearchTerm('')}
+                className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-white"
               >
-                <span>{branchName}</span>
-                <span className={`px-2 py-0.5 rounded-md text-[11px] font-mono ${
-                  count > 0 
-                    ? (isSelected ? 'bg-black/30 text-white' : 'bg-cyan-950 text-cyan-300 font-bold') 
-                    : 'bg-slate-900 text-slate-500'
-                }`}>
-                  {count}
-                </span>
+                <X className="w-4 h-4" />
               </button>
-            );
-          })}
+            )}
+          </div>
+
+          {/* Selector desplegable compacto (Ideal para celulares o selección rápida) */}
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-bold text-slate-400 whitespace-nowrap">Ir a Sucursal:</label>
+              <select
+                value={selectedBranch}
+                onChange={(e) => setSelectedBranch(e.target.value)}
+                className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs sm:text-sm font-semibold text-white outline-none focus:border-cyan-500 cursor-pointer"
+              >
+                <option value="ALL">Todas las Cuentas ({tickets.length})</option>
+                {BRANCH_NAMES.map(name => {
+                  const count = getBranchCount(name);
+                  return (
+                    <option key={name} value={name}>
+                      {name} ({count})
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+
+            {/* Toggle de solo pendientes */}
+            <button
+              onClick={() => setFilterOnlyPending(!filterOnlyPending)}
+              className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border flex items-center gap-1.5 cursor-pointer ${
+                filterOnlyPending 
+                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/50' 
+                  : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-white'
+              }`}
+            >
+              <AlertCircle className="w-3.5 h-3.5" />
+              <span>Solo Pendientes</span>
+            </button>
+          </div>
         </div>
+
+        {/* CUADRÍCULA DE PÍLDORAS FLUIDAS (SE ADAPTA Y ENVUELVE NATURALMENTE - NUNCA SE DESBORDA) */}
+        <div>
+          <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
+            <Layers className="w-3.5 h-3.5 text-cyan-400" />
+            <span>Seleccionar Sucursal o Área ({BRANCH_NAMES.length} disponibles)</span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            
+            {/* Botón: Todas las Cuentas */}
+            <button
+              onClick={() => setSelectedBranch('ALL')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border cursor-pointer ${
+                selectedBranch === 'ALL'
+                  ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white border-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.3)]'
+                  : 'bg-slate-900 text-slate-300 border-slate-800 hover:border-slate-700 hover:text-white hover:bg-slate-800/80'
+              }`}
+            >
+              <Building2 className="w-3.5 h-3.5" />
+              <span>Todas las Cuentas</span>
+              <span className={`px-2 py-0.5 rounded-md text-[11px] font-mono font-bold ${
+                selectedBranch === 'ALL' ? 'bg-black/30 text-white' : 'bg-slate-800 text-slate-400'
+              }`}>
+                {tickets.length}
+              </span>
+            </button>
+
+            {/* Píldoras de cada Sucursal con conteo inteligente */}
+            {BRANCH_NAMES.map(branchName => {
+              const count = getBranchCount(branchName);
+              const activeCount = getBranchActiveCount(branchName);
+              const isSelected = selectedBranch === branchName;
+
+              return (
+                <button
+                  key={branchName}
+                  onClick={() => setSelectedBranch(branchName)}
+                  className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border cursor-pointer ${
+                    isSelected
+                      ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white border-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.3)]'
+                      : activeCount > 0
+                        ? 'bg-slate-900 text-slate-200 border-cyan-900/60 hover:border-cyan-500 hover:text-white'
+                        : 'bg-slate-900/70 text-slate-400 border-slate-800 hover:border-slate-700 hover:text-slate-200'
+                  }`}
+                >
+                  <span className="truncate max-w-[160px] sm:max-w-none">{branchName}</span>
+                  
+                  {/* Badge de conteo con iluminación si tiene tickets */}
+                  <span className={`px-2 py-0.5 rounded-md text-[11px] font-mono font-bold ${
+                    isSelected
+                      ? 'bg-black/30 text-white'
+                      : count > 0
+                        ? 'bg-cyan-950 text-cyan-300 border border-cyan-800/70 shadow-sm'
+                        : 'bg-slate-800 text-slate-500'
+                  }`}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
       </div>
 
-      {/* Buscador dentro de la sucursal seleccionada */}
-      <div className="mb-6">
-        <div className="relative max-w-md">
-          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-            <Search className="h-4 w-4 text-slate-400" />
-          </div>
-          <input 
-            type="text" 
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder={`Buscar en ${selectedBranch === 'ALL' ? 'todas las cuentas' : selectedBranch}...`} 
-            className="block w-full pl-10 pr-4 py-2.5 border border-slate-700 rounded-xl bg-[#0f172a] text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-xs sm:text-sm"
-          />
+      {/* Indicador de Filtro Activo */}
+      <div className="flex items-center justify-between mb-4 px-1">
+        <div className="flex items-center gap-2 text-xs text-slate-400">
+          <span>Mostrando incidencias de:</span>
+          <span className="font-bold text-white bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-800">
+            {selectedBranch === 'ALL' ? 'Todas las Sucursales' : selectedBranch}
+          </span>
+          {filterOnlyPending && (
+            <span className="text-amber-400 font-bold bg-amber-950/60 px-2 py-0.5 rounded border border-amber-800 text-[11px]">
+              Solo Pendientes
+            </span>
+          )}
         </div>
+        <span className="text-xs text-slate-400 font-mono">
+          <strong>{filteredTickets.length}</strong> {filteredTickets.length === 1 ? 'ticket' : 'tickets'}
+        </span>
       </div>
 
       {/* Lista de Tickets de la Sucursal */}
@@ -302,10 +407,10 @@ export default function AdminBranchTickets() {
               </p>
 
               <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-500 mt-2">
-                <span>Categora: <span className="text-slate-400 font-medium">{ticket.category}</span></span>
-                <span></span>
+                <span>Categoría: <span className="text-slate-400 font-medium">{ticket.category}</span></span>
+                <span>•</span>
                 <span>Reportado por: <span className="text-slate-400 font-medium">{ticket.user}</span></span>
-                <span></span>
+                <span>•</span>
                 <span>Fecha: <span className="text-slate-400 font-medium">{ticket.date}</span></span>
               </div>
             </div>
@@ -316,39 +421,43 @@ export default function AdminBranchTickets() {
                 {ticket.image && (
                   <button
                     onClick={() => setViewingPhoto({ image: ticket.image, title: ticket.title, id: ticket.id })}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-950 hover:bg-cyan-900/60 text-cyan-300 border border-cyan-800/60 rounded-xl text-xs font-bold transition-all shadow-sm"
-                    title="Ver evidencia fotogrfica de la incidencia"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-950 hover:bg-cyan-900/60 text-cyan-300 border border-cyan-800/60 rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer"
+                    title="Ver evidencia fotográfica de la incidencia"
                   >
                     <Camera className="w-3.5 h-3.5" /> Ver Foto
                   </button>
                 )}
                 <button
                   onClick={() => handleOpenEdit(ticket)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-900/30 hover:bg-blue-900/50 text-cyan-300 border border-blue-700/50 rounded-xl text-xs font-bold transition-all shadow-sm"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-900/30 hover:bg-blue-900/50 text-cyan-300 border border-blue-700/50 rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer"
                   title="Editar datos de la incidencia (corregir errores)"
                 >
                   <Edit3 className="w-3.5 h-3.5" /> Editar
                 </button>
                 <button
                   onClick={() => handleDelete(ticket.id)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-red-950/40 hover:bg-red-900/40 text-red-400 border border-red-800/50 rounded-xl text-xs font-bold transition-all shadow-sm"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-red-950/40 hover:bg-red-900/40 text-red-400 border border-red-800/50 rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer"
                   title="Eliminar este ticket"
                 >
                   <Trash2 className="w-3.5 h-3.5" /> Eliminar
                 </button>
               </div>
 
-              {/* Botones de cambio rpido de estado */}
+              {/* Botones de cambio rápido de estado */}
               <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => handleQuickStatus(ticket.id, 'En Progreso')}
-                  className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-colors ${ticket.status === 'En Progreso' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}
+                  className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-colors cursor-pointer ${
+                    ticket.status === 'En Progreso' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'
+                  }`}
                 >
                   Atendiendo
                 </button>
                 <button
                   onClick={() => handleQuickStatus(ticket.id, 'Resuelto')}
-                  className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-colors flex items-center gap-1 ${ticket.status === 'Resuelto' ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-emerald-300'}`}
+                  className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-colors flex items-center gap-1 cursor-pointer ${
+                    ticket.status === 'Resuelto' ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-emerald-300'
+                  }`}
                 >
                   <Check className="w-3 h-3" /> Resolver
                 </button>
@@ -359,12 +468,13 @@ export default function AdminBranchTickets() {
 
         {filteredTickets.length === 0 && (
           <div className="bg-[#0f172a] rounded-2xl border border-slate-800 p-12 text-center text-slate-400 text-sm font-medium">
-            No hay incidencias registradas para la cuenta seleccionada.
+            <Building2 className="w-8 h-8 text-slate-600 mx-auto mb-2" />
+            No hay incidencias registradas para el filtro seleccionado.
           </div>
         )}
       </div>
 
-      {/* Modal de Edicin para el Administrador */}
+      {/* Modal de Edición para el Administrador */}
       {editingTicket && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
           <div className="bg-[#0f172a] border border-slate-700 rounded-2xl w-full max-w-xl overflow-hidden shadow-2xl">
@@ -375,10 +485,10 @@ export default function AdminBranchTickets() {
                   Editar Incidencia #{editingTicket.id}
                 </h3>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Modifique cualquier dato ingresado errneamente por la sucursal.
+                  Modifique cualquier dato ingresado erróneamente por la sucursal.
                 </p>
               </div>
-              <button onClick={() => setEditingTicket(null)} className="text-slate-400 hover:text-white p-1">
+              <button onClick={() => setEditingTicket(null)} className="text-slate-400 hover:text-white p-1 cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -398,7 +508,7 @@ export default function AdminBranchTickets() {
                   <button
                     type="button"
                     onClick={() => setViewingPhoto({ image: editingTicket.image, title: editingTicket.title, id: editingTicket.id })}
-                    className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-cyan-300 rounded-lg text-xs font-bold border border-slate-700 flex items-center gap-1"
+                    className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-cyan-300 rounded-lg text-xs font-bold border border-slate-700 flex items-center gap-1 cursor-pointer"
                   >
                     <Maximize2 className="w-3.5 h-3.5" /> Ampliar
                   </button>
@@ -406,11 +516,11 @@ export default function AdminBranchTickets() {
               )}
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Punto de Operacin / Cuenta *</label>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Punto de Operación / Cuenta *</label>
                 <select
                   value={editFormData.zone}
                   onChange={(e) => setEditFormData({ ...editFormData, zone: e.target.value })}
-                  className="w-full px-3.5 py-2.5 bg-slate-800/80 border border-slate-700 rounded-xl text-white text-xs sm:text-sm focus:ring-2 focus:ring-cyan-500 outline-none"
+                  className="w-full px-3.5 py-2.5 bg-slate-800/80 border border-slate-700 rounded-xl text-white text-xs sm:text-sm focus:ring-2 focus:ring-cyan-500 outline-none cursor-pointer"
                 >
                   {BRANCH_NAMES.map(b => (
                     <option key={b} value={b} className="bg-slate-900">{b}</option>
@@ -435,12 +545,12 @@ export default function AdminBranchTickets() {
                   <select
                     value={editFormData.priority}
                     onChange={(e) => setEditFormData({ ...editFormData, priority: e.target.value })}
-                    className="w-full px-3.5 py-2.5 bg-slate-800/80 border border-slate-700 rounded-xl text-white text-xs sm:text-sm focus:ring-2 focus:ring-cyan-500 outline-none"
+                    className="w-full px-3.5 py-2.5 bg-slate-800/80 border border-slate-700 rounded-xl text-white text-xs sm:text-sm focus:ring-2 focus:ring-cyan-500 outline-none cursor-pointer"
                   >
                     <option value="Baja" className="bg-slate-900">Baja</option>
                     <option value="Media" className="bg-slate-900">Media</option>
                     <option value="Alta" className="bg-slate-900">Alta</option>
-                    <option value="Crtica" className="bg-slate-900">Crtica</option>
+                    <option value="Crítica" className="bg-slate-900">Crítica</option>
                   </select>
                 </div>
 
@@ -449,7 +559,7 @@ export default function AdminBranchTickets() {
                   <select
                     value={editFormData.status}
                     onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value })}
-                    className="w-full px-3.5 py-2.5 bg-slate-800/80 border border-slate-700 rounded-xl text-white text-xs sm:text-sm focus:ring-2 focus:ring-cyan-500 outline-none"
+                    className="w-full px-3.5 py-2.5 bg-slate-800/80 border border-slate-700 rounded-xl text-white text-xs sm:text-sm focus:ring-2 focus:ring-cyan-500 outline-none cursor-pointer"
                   >
                     <option value="Abierto" className="bg-slate-900">Abierto (Pendiente)</option>
                     <option value="En Progreso" className="bg-slate-900">En Progreso (Atendiendo)</option>
@@ -460,7 +570,7 @@ export default function AdminBranchTickets() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Lnea de Servicio / Categora *</label>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Línea de Servicio / Categoría *</label>
                 <input 
                   type="text" 
                   value={editFormData.category}
@@ -470,7 +580,7 @@ export default function AdminBranchTickets() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Bitcora de Observaciones / Descripcin *</label>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Bitácora de Observaciones / Descripción *</label>
                 <textarea 
                   rows="4"
                   required
@@ -484,13 +594,13 @@ export default function AdminBranchTickets() {
                 <button 
                   type="button" 
                   onClick={() => setEditingTicket(null)}
-                  className="px-4 py-2 bg-slate-800 text-slate-300 hover:text-white rounded-xl text-xs sm:text-sm font-semibold"
+                  className="px-4 py-2 bg-slate-800 text-slate-300 hover:text-white rounded-xl text-xs sm:text-sm font-semibold cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button 
                   type="submit" 
-                  className="px-5 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md hover:shadow-cyan-500/25"
+                  className="px-5 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md hover:shadow-cyan-500/25 cursor-pointer"
                 >
                   Guardar Cambios
                 </button>
@@ -521,7 +631,7 @@ export default function AdminBranchTickets() {
                 </a>
                 <button 
                   onClick={() => setViewingPhoto(null)}
-                  className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white transition-colors"
+                  className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
