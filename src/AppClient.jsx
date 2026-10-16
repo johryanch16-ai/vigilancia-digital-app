@@ -2,7 +2,8 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import TicketForm from './TicketForm';
 import ClientPasswords from './ClientPasswords';
-import { LogOut, Ticket, Lock, UserCircle, ChevronDown, Building2, CheckCircle2, Clock, AlertCircle, ListOrdered, X, Camera, Download, Maximize2 } from 'lucide-react';
+import { LogOut, RefreshCw, Ticket, Lock, UserCircle, ChevronDown, Building2, CheckCircle2, Clock, AlertCircle, ListOrdered, X, Camera, Download, Maximize2 } from 'lucide-react';
+import { supabase } from './lib/supabase';
 import { subscribeToTickets, getLocalTickets, syncPendingLocalTickets, resendTicketToSupabase, resendAllPendingTickets } from './lib/ticketStorage';
 import { playSuccessChime } from './lib/notificationAudio';
 import Logo from './components/Logo';
@@ -64,6 +65,7 @@ function AppClient() {
     if (role === 'admin' && adminUser) {
       setIsAdmin(true);
       setClientName(adminUser || 'Administrador');
+      setClientUser({ name: adminUser, branch: 'Administración', role: 'admin' });
     } else if (role === 'client' && clientUserStr) {
       try {
         const client = JSON.parse(clientUserStr);
@@ -75,16 +77,76 @@ function AppClient() {
     }
   }, [navigate]);
 
-  // Cargar tickets de la sucursal actual
-  const loadMyTickets = () => {
-    if (!clientUser) return;
-    const all = getLocalTickets();
-    const filtered = all.filter(t => 
-      (t.zone && t.zone.toLowerCase() === (clientUser.branch || clientUser.name || '').toLowerCase()) ||
-      (t.user && t.user.toLowerCase() === (clientUser.name || clientUser.branch || '').toLowerCase()) ||
-      (t.reporter_name && t.reporter_name.toLowerCase() === (clientUser.name || clientUser.branch || '').toLowerCase())
-    );
-    setMyTickets(filtered);
+  // Cargar todos los tickets combinando almacenamiento local y base de datos Supabase
+  const [ticketFilterMode, setTicketFilterMode] = useState('all'); // 'all' o 'mine'
+  const [isLoadingTickets, setIsLoadingTickets] = useState(false);
+  const [totalAllTickets, setTotalAllTickets] = useState(0);
+
+  const loadMyTickets = async (forcedMode = null) => {
+    const activeMode = forcedMode !== null ? forcedMode : ticketFilterMode;
+    setIsLoadingTickets(true);
+    
+    // 1. Obtener del almacenamiento local
+    const local = getLocalTickets();
+    
+    // 2. Obtener de Supabase para ver todos los reportes de todas las sucursales
+    let remote = [];
+    try {
+      const { data, error } = await supabase
+        .from('tickets')
+        .select('*')
+        .order('created_at', { ascending: false });
+        
+      if (!error && Array.isArray(data)) {
+        remote = data.map(t => ({
+          id: t.id ? t.id.toString() : 'REMOTE-' + Math.random(),
+          db_id: t.id,
+          title: t.title || 'Incidencia',
+          description: t.description || '',
+          priority: t.priority || 'Media',
+          status: t.status || 'Abierto',
+          branch: t.reporter_name || 'Sucursal',
+          reporter_name: t.reporter_name || 'Sucursal',
+          user: t.reporter_name || 'Sucursal',
+          zone: t.reporter_name || 'Sucursal',
+          category: t.category_id || 'General',
+          date: t.created_at ? new Date(t.created_at).toLocaleString() : 'Fecha no registrada',
+          inDatabase: true
+        }));
+      }
+    } catch (e) {}
+
+    // Combinar sin duplicados
+    const combined = [...local];
+    for (const r of remote) {
+      const existing = combined.find(l => l.id === r.id || l.db_id === r.id);
+      if (existing) {
+        existing.db_id = r.id;
+        existing.inDatabase = true;
+        if (r.status) existing.status = r.status;
+      } else {
+        combined.push(r);
+      }
+    }
+
+    setTotalAllTickets(combined.length);
+
+    // Filtrar según la pestaña activa ('all' o 'mine')
+    const branchName = (clientUser?.branch || clientUser?.name || '').toLowerCase();
+    const isUserAdmin = isAdmin || clientUser?.role === 'admin' || ['johryan', 'johnny', 'administración'].includes(branchName);
+
+    let result = combined;
+    if (activeMode === 'mine' && !isUserAdmin && branchName) {
+      result = combined.filter(t => 
+        (t.branch && t.branch.toLowerCase().includes(branchName)) ||
+        (t.user && t.user.toLowerCase().includes(branchName)) ||
+        (t.zone && t.zone.toLowerCase().includes(branchName)) ||
+        (t.reporter_name && t.reporter_name.toLowerCase().includes(branchName))
+      );
+    }
+
+    setMyTickets(result);
+    setIsLoadingTickets(false);
   };
 
   useEffect(() => {
@@ -230,7 +292,7 @@ function AppClient() {
               }`}
             >
               <ListOrdered className="w-4 h-4 text-cyan-400" />
-              <span>Mis Reportes ({myTickets.length})</span>
+              <span>Historial de Reportes ({totalAllTickets || myTickets.length})</span>
             </button>
 
             {/* Profile Dropdown */}
@@ -315,95 +377,189 @@ function AppClient() {
             <TicketForm currentUser={clientUser} />
           ) : activeView === 'my_tickets' ? (
             <div className="bg-[#0f172a]/90 backdrop-blur-xl rounded-2xl shadow-xl border border-slate-700/80 p-5 sm:p-7">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 pb-4 border-b border-slate-800">
+              {/* Encabezado y Acciones */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-5 border-b border-slate-800">
                 <div>
                   <h2 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
                     <ListOrdered className="w-5 h-5 text-cyan-400" />
-                    Historial de Incidencias de {clientName}
+                    <span>Todos los Reportes de Incidencias ({myTickets.length})</span>
                   </h2>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Consulte el estado en tiempo real de sus reportes despachados al equipo de soporte.
+                  <p className="text-xs text-slate-400 mt-1">
+                    Visualice todos los reportes generados. Si algún ticket no aparece en soporte, use el botón <strong className="text-cyan-300">Reenviar</strong>.
                   </p>
                 </div>
-                <div className="flex items-center gap-2.5">
-                  {myTickets.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={handleResendAll}
-                      disabled={resendingAll}
-                      className="px-3.5 py-2 bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 border border-cyan-700/80 font-bold text-xs rounded-xl shadow-md cursor-pointer transition-all active:scale-95 disabled:opacity-50 flex items-center gap-1.5"
-                      title="Reenviar todos los reportes de esta sucursal a los administradores"
-                    >
-                      <Ticket className={`w-3.5 h-3.5 ${resendingAll ? 'animate-pulse' : ''}`} />
-                      <span>{resendingAll ? 'Reenviando...' : 'Reenviar todos'}</span>
-                    </button>
-                  )}
+
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* Botón Refrescar */}
+                  <button
+                    type="button"
+                    onClick={() => loadMyTickets()}
+                    disabled={isLoadingTickets}
+                    className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 font-bold text-xs rounded-xl shadow-md cursor-pointer transition-all active:scale-95 flex items-center gap-1.5"
+                    title="Actualizar lista desde Supabase"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isLoadingTickets ? 'animate-spin text-cyan-400' : ''}`} />
+                    <span className="hidden sm:inline">Refrescar</span>
+                  </button>
+
+                  {/* Botón Reenviar Todos */}
+                  <button
+                    type="button"
+                    onClick={handleResendAll}
+                    disabled={resendingAll}
+                    className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-xs rounded-xl shadow-md cursor-pointer transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2"
+                    title="Reenviar todos los reportes pendientes a Johryan y Johnny"
+                  >
+                    <Ticket className={`w-4 h-4 ${resendingAll ? 'animate-pulse' : ''}`} />
+                    <span>{resendingAll ? 'Reenviando a Soporte...' : 'Reenviar todos a Soporte'}</span>
+                  </button>
+
+                  {/* Botón Nueva Incidencia */}
                   <button
                     onClick={() => setActiveView('tickets')}
-                    className="px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-bold text-xs rounded-xl shadow-md cursor-pointer hover:from-blue-500 hover:to-cyan-500 transition-all"
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-md cursor-pointer transition-all active:scale-95"
                   >
                     + Nueva Incidencia
                   </button>
                 </div>
               </div>
 
+              {/* Pestañas de Filtro si aplica */}
+              <div className="flex items-center gap-2 mb-5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTicketFilterMode('all');
+                    loadMyTickets('all');
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${ticketFilterMode === 'all' ? 'bg-cyan-600 text-white shadow-sm' : 'bg-slate-800 text-slate-400 hover:text-white'}`}
+                >
+                  Todos los Reportes ({totalAllTickets || myTickets.length})
+                </button>
+                {!isAdmin && clientUser?.branch && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTicketFilterMode('mine');
+                      loadMyTickets('mine');
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${ticketFilterMode === 'mine' ? 'bg-cyan-600 text-white shadow-sm' : 'bg-slate-800 text-slate-400 hover:text-white'}`}
+                  >
+                    Solo {clientUser?.branch || clientUser?.name}
+                  </button>
+                )}
+              </div>
+
               {resendNotice && (
-                <div className="mb-4 p-3 rounded-xl bg-cyan-950/70 border border-cyan-500/50 text-cyan-200 text-xs font-semibold flex items-center justify-between">
+                <div className="mb-4 p-3.5 rounded-xl bg-cyan-950/80 border border-cyan-500/60 text-cyan-200 text-xs font-semibold flex items-center justify-between shadow-lg">
                   <span>{resendNotice}</span>
-                  <button type="button" onClick={() => setResendNotice(null)} className="text-cyan-400 hover:text-white ml-2">×</button>
+                  <button type="button" onClick={() => setResendNotice(null)} className="text-cyan-400 hover:text-white ml-2 text-sm font-bold">×</button>
                 </div>
               )}
 
-              {myTickets.length === 0 ? (
-                <div className="text-center py-12 text-slate-500 text-sm">
-                  Esta cuenta aún no ha registrado incidencias.
+              {isLoadingTickets && myTickets.length === 0 ? (
+                <div className="text-center py-12 text-slate-400 text-sm flex flex-col items-center gap-3">
+                  <RefreshCw className="w-6 h-6 animate-spin text-cyan-400" />
+                  <span>Cargando reportes del sistema...</span>
+                </div>
+              ) : myTickets.length === 0 ? (
+                <div className="text-center py-12 px-4 rounded-xl border border-dashed border-slate-800 bg-slate-900/30">
+                  <p className="text-slate-400 text-sm font-medium">No hay reportes registrados actualmente.</p>
+                  <p className="text-slate-500 text-xs mt-1">Los reportes creados por cualquier sucursal aparecerán aquí con su estado y botón de reenvío.</p>
+                  <div className="mt-4 flex items-center justify-center gap-3">
+                    <button
+                      onClick={() => setActiveView('tickets')}
+                      className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold rounded-xl cursor-pointer"
+                    >
+                      + Crear Primer Ticket
+                    </button>
+                    <button
+                      onClick={() => loadMyTickets()}
+                      className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl border border-slate-700 cursor-pointer"
+                    >
+                      🔄 Buscar de Nuevo
+                    </button>
+                  </div>
                 </div>
               ) : (
-                <div className="divide-y divide-slate-800">
+                <div className="divide-y divide-slate-800/80">
                   {myTickets.map(ticket => (
-                    <div key={ticket.id} className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-cyan-400 font-bold text-xs sm:text-sm">#{ticket.id}</span>
-                          <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold ${getStatusBadge(ticket.status)}`}>
+                    <div key={ticket.id} className="py-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4 hover:bg-slate-800/20 px-3 rounded-xl transition-colors">
+                      <div className="space-y-1.5 flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-mono text-cyan-400 font-bold text-xs sm:text-sm">#{ticket.displayId || ticket.id.substring(0, 8)}</span>
+                          
+                          {/* Sucursal / Reportante */}
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-bold bg-slate-800 text-cyan-300 border border-slate-700">
+                            <Building2 className="w-3 h-3 text-cyan-400" />
+                            {ticket.reporter_name || ticket.branch || ticket.user || 'Sucursal'}
+                          </span>
+
+                          {/* Estado de resolución */}
+                          <span className={`px-2.5 py-0.5 rounded-lg text-[11px] font-bold ${getStatusBadge(ticket.status)}`}>
                             {ticket.status}
                           </span>
+
+                          {/* Estado en Base de Datos */}
+                          {ticket.db_id || ticket.inDatabase ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-950/70 border border-emerald-800/80 px-2 py-0.5 rounded-md">
+                              <CheckCircle2 className="w-3 h-3" /> En Base de Datos
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-300 bg-amber-950/80 border border-amber-700/80 px-2 py-0.5 rounded-md animate-pulse">
+                              <Clock className="w-3 h-3" /> Pendiente de Envío
+                            </span>
+                          )}
+
                           {ticket.image && (
                             <button
+                              type="button"
                               onClick={() => setClientLightboxPhoto(ticket.image)}
-                              className="inline-flex items-center gap-1 text-[10px] font-bold text-cyan-300 bg-cyan-950/80 border border-cyan-800/80 px-2 py-0.5 rounded-full hover:bg-cyan-900 transition-colors cursor-pointer"
+                              className="inline-flex items-center gap-1 text-[10px] font-bold text-cyan-300 bg-cyan-950/80 border border-cyan-800/80 px-2 py-0.5 rounded-md hover:bg-cyan-900 transition-colors cursor-pointer"
                             >
                               <Camera className="w-3 h-3" /> Ver Foto
                             </button>
                           )}
                         </div>
-                        <h4 className="text-sm font-semibold text-white mt-1">{ticket.title}</h4>
-                        <p className="text-xs text-slate-400 line-clamp-1 mt-0.5">{ticket.description}</p>
-                        <div className="text-[11px] text-slate-500 mt-1">{ticket.date} • {ticket.category}</div>
+
+                        <h4 className="text-sm sm:text-base font-bold text-white">{ticket.title}</h4>
+                        <p className="text-xs text-slate-400 line-clamp-2">{ticket.description}</p>
+                        
+                        <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500 pt-0.5">
+                          <span>{ticket.date}</span>
+                          {ticket.category && <span>• {ticket.category}</span>}
+                          {ticket.priority && (
+                            <span>• Prioridad: <strong className="text-slate-400">{ticket.priority}</strong></span>
+                          )}
+                        </div>
                       </div>
 
-                      <div className="flex items-center gap-2 shrink-0">
+                      {/* Botón Reenviar en vivo */}
+                      <div className="flex items-center gap-2 shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-800">
                         <button
                           type="button"
                           onClick={() => handleResendSingle(ticket.id)}
                           disabled={resendingId === ticket.id}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl bg-cyan-950/90 text-cyan-300 border border-cyan-700/80 hover:bg-cyan-900 hover:text-white transition-all cursor-pointer active:scale-95 disabled:opacity-50"
-                          title="Reenviar este ticket a Johryan y Johnny"
+                          className={`inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer active:scale-95 disabled:opacity-50 shadow-md ${
+                            resendSuccessId === ticket.id
+                              ? 'bg-emerald-600 text-white border border-emerald-500'
+                              : 'bg-cyan-950 hover:bg-cyan-900 text-cyan-300 hover:text-white border border-cyan-700/80'
+                          }`}
+                          title="Reenviar este reporte a Johryan y Johnny en Supabase"
                         >
-                          <Ticket className={`w-3.5 h-3.5 ${resendingId === ticket.id ? 'animate-pulse' : ''}`} />
-                          <span>{resendingId === ticket.id ? 'Enviando...' : resendSuccessId === ticket.id ? '¡Reenviado!' : 'Reenviar'}</span>
+                          <Ticket className={`w-3.5 h-3.5 ${resendingId === ticket.id ? 'animate-spin' : ''}`} />
+                          <span>
+                            {resendingId === ticket.id 
+                              ? 'Reenviando...' 
+                              : resendSuccessId === ticket.id 
+                                ? '¡Reenviado a Soporte!' 
+                                : 'Reenviar a Soporte'}
+                          </span>
                         </button>
-                        {ticket.status === 'Resuelto' ? (
-                          <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-400 bg-emerald-950/40 px-3 py-1.5 rounded-xl border border-emerald-800">
+
+                        {ticket.status === 'Resuelto' && (
+                          <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-400 bg-emerald-950/40 px-3 py-2 rounded-xl border border-emerald-800">
                             <CheckCircle2 className="w-4 h-4" /> Solucionado
-                          </span>
-                        ) : ticket.status === 'En Progreso' ? (
-                          <span className="inline-flex items-center gap-1 text-xs font-bold text-blue-400 bg-blue-950/40 px-3 py-1.5 rounded-xl border border-blue-800">
-                            <Clock className="w-4 h-4" /> En Atención
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-xs font-bold text-orange-400 bg-orange-950/40 px-3 py-1.5 rounded-xl border border-orange-800">
-                            <AlertCircle className="w-4 h-4" /> Pendiente
                           </span>
                         )}
                       </div>

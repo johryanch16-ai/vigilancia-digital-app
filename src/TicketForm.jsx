@@ -17,6 +17,7 @@ import {
   Trash2,
   Maximize2
 } from 'lucide-react';
+import { supabase } from './lib/supabase';
 import { BRANCH_NAMES } from './lib/branches';
 import { createTicket, getLocalTickets, subscribeToTickets, syncPendingLocalTickets, resendTicketToSupabase, resendAllPendingTickets } from './lib/ticketStorage.js';
 
@@ -80,17 +81,51 @@ const TicketForm = ({ currentUser }) => {
   const fileInputRef = useRef(null);
 
   // Cargar tickets de esta sucursal
-  const loadRecentTickets = () => {
-    const branchName = currentUser?.branch || currentUser?.name || formData.branch;
-    if (!branchName) return;
+  const loadRecentTickets = async () => {
     const all = getLocalTickets();
-    const branchLower = branchName.toLowerCase();
-    const filtered = all.filter(t => 
-      (t.zone && t.zone.toLowerCase() === branchLower) ||
-      (t.user && t.user.toLowerCase() === branchLower) ||
-      (t.reporter_name && t.reporter_name.toLowerCase() === branchLower)
-    );
-    setRecentBranchTickets(filtered);
+    let remote = [];
+    try {
+      const { data, error } = await supabase.from('tickets').select('*').order('created_at', { ascending: false }).limit(20);
+      if (!error && Array.isArray(data)) {
+        remote = data.map(t => ({
+          id: t.id ? t.id.toString() : 'REMOTE-' + Math.random(),
+          db_id: t.id,
+          title: t.title || 'Incidencia',
+          description: t.description || '',
+          priority: t.priority || 'Media',
+          status: t.status || 'Abierto',
+          branch: t.reporter_name || 'Sucursal',
+          reporter_name: t.reporter_name || 'Sucursal',
+          user: t.reporter_name || 'Sucursal',
+          zone: t.reporter_name || 'Sucursal',
+          date: t.created_at ? new Date(t.created_at).toLocaleString() : ''
+        }));
+      }
+    } catch(e) {}
+
+    const combined = [...all];
+    for (const r of remote) {
+      if (!combined.some(l => l.id === r.id || l.db_id === r.id)) {
+        combined.push(r);
+      }
+    }
+
+    const branchName = currentUser?.branch || currentUser?.name || formData.branch || '';
+    const isUserAdmin = currentUser?.role === 'admin' || ['johryan', 'johnny', 'administración'].includes(branchName.toLowerCase());
+
+    let filtered = combined;
+    if (!isUserAdmin && branchName) {
+      const branchOnly = combined.filter(t => 
+        (t.branch && t.branch.toLowerCase().includes(branchName.toLowerCase())) ||
+        (t.user && t.user.toLowerCase().includes(branchName.toLowerCase())) ||
+        (t.zone && t.zone.toLowerCase().includes(branchName.toLowerCase())) ||
+        (t.reporter_name && t.reporter_name.toLowerCase().includes(branchName.toLowerCase()))
+      );
+      if (branchOnly.length > 0) {
+        filtered = branchOnly;
+      }
+    }
+    setRecentBranchTickets(filtered.slice(0, 15));
   };
 
   useEffect(() => {

@@ -352,53 +352,97 @@ export function subscribeToTickets(onNewTicket, onStatusChange, onTicketUpdated)
 export async function resendTicketToSupabase(ticketId) {
   try {
     const local = getLocalTickets();
-    const ticket = local.find(t => t.id === ticketId);
+    let ticket = local.find(t => t.id === ticketId || t.db_id === ticketId);
+
+    // Si no está en local, intentar obtenerlo de Supabase para re-notificar
+    if (!ticket) {
+      try {
+        const { data } = await supabase.from('tickets').select('*').eq('id', ticketId).single();
+        if (data) {
+          ticket = {
+            id: data.id,
+            db_id: data.id,
+            title: data.title,
+            description: data.description,
+            priority: data.priority || 'Media',
+            status: data.status || 'Abierto',
+            reporter_name: data.reporter_name,
+            user: data.reporter_name,
+            zone: data.reporter_name,
+            date: data.created_at ? new Date(data.created_at).toLocaleString() : new Date().toLocaleString()
+          };
+        }
+      } catch (e) {}
+    }
+
     if (!ticket) return { success: false, message: 'Ticket no encontrado' };
 
-    const { data, error } = await supabase
-      .from('tickets')
-      .insert([{
-        title: ticket.title,
-        description: ticket.description,
-        priority: ticket.priority || 'Media',
-        status: ticket.status || 'Abierto',
-        reporter_name: ticket.reporter_name || ticket.user || ticket.zone || 'Sucursal'
-      }])
-      .select();
+    let newDbId = ticket.db_id;
+    if (!ticket.db_id) {
+      const { data, error } = await supabase
+        .from('tickets')
+        .insert([{
+          title: ticket.title,
+          description: ticket.description,
+          priority: ticket.priority || 'Media',
+          status: ticket.status || 'Abierto',
+          reporter_name: ticket.reporter_name || ticket.user || ticket.zone || ticket.branch || 'Sucursal'
+        }])
+        .select();
 
-    if (error) {
-      return { success: false, message: error.message };
+      if (error) {
+        return { success: false, message: error.message };
+      }
+
+      if (data && data[0]) {
+        newDbId = data[0].id;
+        ticket.db_id = newDbId;
+      }
+    } else {
+      try {
+        await supabase
+          .from('tickets')
+          .update({ status: ticket.status || 'Abierto' })
+          .eq('id', ticket.db_id);
+      } catch (err) {}
     }
 
-    if (data && data[0]) {
-      ticket.db_id = data[0].id;
-      ticket.last_resend = new Date().toISOString();
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(local));
+    ticket.last_resend = new Date().toISOString();
 
-      if (channel) {
-        channel.postMessage({ type: 'NEW_TICKET', ticket });
-      }
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('vigilancia:new_ticket', { detail: ticket }));
-      }
-      return { success: true, db_id: data[0].id };
+    // Guardar en almacenamiento local
+    const currentLocal = getLocalTickets();
+    const existingIndex = currentLocal.findIndex(t => t.id === ticket.id || (ticket.db_id && t.db_id === ticket.db_id));
+    if (existingIndex !== -1) {
+      currentLocal[existingIndex] = { ...currentLocal[existingIndex], ...ticket };
+    } else {
+      currentLocal.unshift(ticket);
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(currentLocal));
+
+    // Emitir en vivo para Johryan y Johnny
+    if (channel) {
+      channel.postMessage({ type: 'NEW_TICKET', ticket });
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('vigilancia:new_ticket', { detail: ticket }));
     }
 
-    return { success: false, message: 'Sin respuesta de base de datos' };
+    return { success: true, db_id: newDbId };
   } catch (err) {
     return { success: false, message: err.message };
   }
 }
 
-// Reenviar todos los tickets de la sucursal actual a Supabase
+// Reenviar todos los tickets a Supabase
 export async function resendAllPendingTickets(branchFilter = null) {
   try {
     const local = getLocalTickets();
-    const toResend = branchFilter 
+    const toResend = branchFilter && branchFilter !== 'all' && !['administración', 'johryan', 'johnny'].includes(branchFilter.toLowerCase())
       ? local.filter(t => 
-          (t.zone && t.zone.toLowerCase() === branchFilter.toLowerCase()) || 
-          (t.user && t.user.toLowerCase() === branchFilter.toLowerCase()) || 
-          (t.reporter_name && t.reporter_name.toLowerCase() === branchFilter.toLowerCase()))
+          (t.zone && t.zone.toLowerCase().includes(branchFilter.toLowerCase())) || 
+          (t.user && t.user.toLowerCase().includes(branchFilter.toLowerCase())) || 
+          (t.reporter_name && t.reporter_name.toLowerCase().includes(branchFilter.toLowerCase())) ||
+          (t.branch && t.branch.toLowerCase().includes(branchFilter.toLowerCase())))
       : local;
 
     if (toResend.length === 0) return { count: 0, success: true };
@@ -406,22 +450,30 @@ export async function resendAllPendingTickets(branchFilter = null) {
     let count = 0;
     for (const t of toResend) {
       try {
-        const { data, error } = await supabase
-          .from('tickets')
-          .insert([{
-            title: t.title,
-            description: t.description,
-            priority: t.priority || 'Media',
-            status: t.status || 'Abierto',
-            reporter_name: t.reporter_name || t.user || t.zone || 'Sucursal'
-          }])
-          .select();
+        if (!t.db_id) {
+          const { data, error } = await supabase
+            .from('tickets')
+            .insert([{
+              title: t.title,
+              description: t.description,
+              priority: t.priority || 'Media',
+              status: t.status || 'Abierto',
+              reporter_name: t.reporter_name || t.user || t.zone || t.branch || 'Sucursal'
+            }])
+            .select();
 
-        if (!error && data && data[0]) {
-          t.db_id = data[0].id;
-          t.last_resend = new Date().toISOString();
-          count++;
+          if (!error && data && data[0]) {
+            t.db_id = data[0].id;
+          }
         }
+        t.last_resend = new Date().toISOString();
+        if (channel) {
+          channel.postMessage({ type: 'NEW_TICKET', ticket: t });
+        }
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('vigilancia:new_ticket', { detail: t }));
+        }
+        count++;
       } catch (e) {}
     }
 
