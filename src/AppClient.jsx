@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import TicketForm from './TicketForm';
 import ClientPasswords from './ClientPasswords';
 import { LogOut, Ticket, Lock, UserCircle, ChevronDown, Building2, CheckCircle2, Clock, AlertCircle, ListOrdered, X, Camera, Download, Maximize2 } from 'lucide-react';
-import { subscribeToTickets, getLocalTickets } from './lib/ticketStorage';
+import { subscribeToTickets, getLocalTickets, syncPendingLocalTickets, resendTicketToSupabase, resendAllPendingTickets } from './lib/ticketStorage';
 import { playSuccessChime } from './lib/notificationAudio';
 import Logo from './components/Logo';
 
@@ -17,6 +17,42 @@ function AppClient() {
   const [resolvedNotice, setResolvedNotice] = useState(null);
   const [myTickets, setMyTickets] = useState([]);
   const [clientLightboxPhoto, setClientLightboxPhoto] = useState(null);
+  const [resendingId, setResendingId] = useState(null);
+  const [resendSuccessId, setResendSuccessId] = useState(null);
+  const [resendingAll, setResendingAll] = useState(false);
+  const [resendNotice, setResendNotice] = useState(null);
+
+  const handleResendSingle = async (ticketId) => {
+    setResendingId(ticketId);
+    setResendNotice(null);
+    const result = await resendTicketToSupabase(ticketId);
+    setResendingId(null);
+    if (result.success) {
+      setResendSuccessId(ticketId);
+      setResendNotice('✅ ¡Ticket reenviado exitosamente a Johryan y Johnny!');
+      loadMyTickets();
+      setTimeout(() => setResendSuccessId(null), 4000);
+      setTimeout(() => setResendNotice(null), 5000);
+    } else {
+      setResendNotice('⚠️ Error al reenviar: ' + (result.message || 'Verifique la conexión'));
+    }
+  };
+
+  const handleResendAll = async () => {
+    const branchName = clientUser?.branch || clientUser?.name || '';
+    setResendingAll(true);
+    setResendNotice(null);
+    const result = await resendAllPendingTickets(branchName);
+    setResendingAll(false);
+    loadMyTickets();
+    if (result.success) {
+      setResendNotice(`✅ ¡Se reenviaron ${result.count} reporte(s) a Johryan y Johnny exitosamente!`);
+      setTimeout(() => setResendNotice(null), 6000);
+    } else {
+      setResendNotice('⚠️ Error al reenviar reportes');
+    }
+  };
+
   
   const menuRef = useRef(null);
 
@@ -52,6 +88,7 @@ function AppClient() {
   };
 
   useEffect(() => {
+    syncPendingLocalTickets();
     loadMyTickets();
   }, [clientUser]);
 
@@ -278,7 +315,7 @@ function AppClient() {
             <TicketForm currentUser={clientUser} />
           ) : activeView === 'my_tickets' ? (
             <div className="bg-[#0f172a]/90 backdrop-blur-xl rounded-2xl shadow-xl border border-slate-700/80 p-5 sm:p-7">
-              <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-800">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 pb-4 border-b border-slate-800">
                 <div>
                   <h2 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
                     <ListOrdered className="w-5 h-5 text-cyan-400" />
@@ -288,13 +325,34 @@ function AppClient() {
                     Consulte el estado en tiempo real de sus reportes despachados al equipo de soporte.
                   </p>
                 </div>
-                <button
-                  onClick={() => setActiveView('tickets')}
-                  className="px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-bold text-xs rounded-xl shadow-md cursor-pointer"
-                >
-                  + Nueva Incidencia
-                </button>
+                <div className="flex items-center gap-2.5">
+                  {myTickets.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleResendAll}
+                      disabled={resendingAll}
+                      className="px-3.5 py-2 bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 border border-cyan-700/80 font-bold text-xs rounded-xl shadow-md cursor-pointer transition-all active:scale-95 disabled:opacity-50 flex items-center gap-1.5"
+                      title="Reenviar todos los reportes de esta sucursal a los administradores"
+                    >
+                      <Ticket className={`w-3.5 h-3.5 ${resendingAll ? 'animate-pulse' : ''}`} />
+                      <span>{resendingAll ? 'Reenviando...' : 'Reenviar todos'}</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setActiveView('tickets')}
+                    className="px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-bold text-xs rounded-xl shadow-md cursor-pointer hover:from-blue-500 hover:to-cyan-500 transition-all"
+                  >
+                    + Nueva Incidencia
+                  </button>
+                </div>
               </div>
+
+              {resendNotice && (
+                <div className="mb-4 p-3 rounded-xl bg-cyan-950/70 border border-cyan-500/50 text-cyan-200 text-xs font-semibold flex items-center justify-between">
+                  <span>{resendNotice}</span>
+                  <button type="button" onClick={() => setResendNotice(null)} className="text-cyan-400 hover:text-white ml-2">×</button>
+                </div>
+              )}
 
               {myTickets.length === 0 ? (
                 <div className="text-center py-12 text-slate-500 text-sm">
@@ -324,7 +382,17 @@ function AppClient() {
                         <div className="text-[11px] text-slate-500 mt-1">{ticket.date} • {ticket.category}</div>
                       </div>
 
-                      <div className="text-right shrink-0">
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleResendSingle(ticket.id)}
+                          disabled={resendingId === ticket.id}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl bg-cyan-950/90 text-cyan-300 border border-cyan-700/80 hover:bg-cyan-900 hover:text-white transition-all cursor-pointer active:scale-95 disabled:opacity-50"
+                          title="Reenviar este ticket a Johryan y Johnny"
+                        >
+                          <Ticket className={`w-3.5 h-3.5 ${resendingId === ticket.id ? 'animate-pulse' : ''}`} />
+                          <span>{resendingId === ticket.id ? 'Enviando...' : resendSuccessId === ticket.id ? '¡Reenviado!' : 'Reenviar'}</span>
+                        </button>
                         {ticket.status === 'Resuelto' ? (
                           <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-400 bg-emerald-950/40 px-3 py-1.5 rounded-xl border border-emerald-800">
                             <CheckCircle2 className="w-4 h-4" /> Solucionado

@@ -204,6 +204,46 @@ export async function createTicket({ title, description, priority, branch, categ
   return ticketObj;
 }
 
+
+// Sincronización automática de tickets locales creados mientras la base de datos estaba desconectada
+export async function syncPendingLocalTickets() {
+  if (typeof window === 'undefined') return;
+  try {
+    const local = getLocalTickets();
+    if (!local || local.length === 0) return;
+
+    let changed = false;
+    for (const t of local) {
+      if (!t.db_id) {
+        try {
+          const { data, error } = await supabase
+            .from('tickets')
+            .insert([{
+              title: t.title,
+              description: t.description,
+              priority: t.priority || 'Media',
+              status: t.status || 'Abierto',
+              reporter_name: t.reporter_name || t.user || t.zone || 'Sucursal'
+            }])
+            .select();
+
+          if (!error && data && data[0]) {
+            t.db_id = data[0].id;
+            changed = true;
+          }
+        } catch (err) {}
+      }
+    }
+
+    if (changed) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(local));
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('vigilancia:tickets_synced', { detail: { count: local.length } }));
+      }
+    }
+  } catch (e) {}
+}
+
 export function subscribeToTickets(onNewTicket, onStatusChange, onTicketUpdated) {
   const handlers = [];
 
@@ -305,4 +345,89 @@ export function subscribeToTickets(onNewTicket, onStatusChange, onTicketUpdated)
   return () => {
     handlers.forEach(cleanup => cleanup());
   };
+}
+
+
+// Reenviar un ticket específico a Supabase directamente
+export async function resendTicketToSupabase(ticketId) {
+  try {
+    const local = getLocalTickets();
+    const ticket = local.find(t => t.id === ticketId);
+    if (!ticket) return { success: false, message: 'Ticket no encontrado' };
+
+    const { data, error } = await supabase
+      .from('tickets')
+      .insert([{
+        title: ticket.title,
+        description: ticket.description,
+        priority: ticket.priority || 'Media',
+        status: ticket.status || 'Abierto',
+        reporter_name: ticket.reporter_name || ticket.user || ticket.zone || 'Sucursal'
+      }])
+      .select();
+
+    if (error) {
+      return { success: false, message: error.message };
+    }
+
+    if (data && data[0]) {
+      ticket.db_id = data[0].id;
+      ticket.last_resend = new Date().toISOString();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(local));
+
+      if (channel) {
+        channel.postMessage({ type: 'NEW_TICKET', ticket });
+      }
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('vigilancia:new_ticket', { detail: ticket }));
+      }
+      return { success: true, db_id: data[0].id };
+    }
+
+    return { success: false, message: 'Sin respuesta de base de datos' };
+  } catch (err) {
+    return { success: false, message: err.message };
+  }
+}
+
+// Reenviar todos los tickets de la sucursal actual a Supabase
+export async function resendAllPendingTickets(branchFilter = null) {
+  try {
+    const local = getLocalTickets();
+    const toResend = branchFilter 
+      ? local.filter(t => 
+          (t.zone && t.zone.toLowerCase() === branchFilter.toLowerCase()) || 
+          (t.user && t.user.toLowerCase() === branchFilter.toLowerCase()) || 
+          (t.reporter_name && t.reporter_name.toLowerCase() === branchFilter.toLowerCase()))
+      : local;
+
+    if (toResend.length === 0) return { count: 0, success: true };
+
+    let count = 0;
+    for (const t of toResend) {
+      try {
+        const { data, error } = await supabase
+          .from('tickets')
+          .insert([{
+            title: t.title,
+            description: t.description,
+            priority: t.priority || 'Media',
+            status: t.status || 'Abierto',
+            reporter_name: t.reporter_name || t.user || t.zone || 'Sucursal'
+          }])
+          .select();
+
+        if (!error && data && data[0]) {
+          t.db_id = data[0].id;
+          t.last_resend = new Date().toISOString();
+          count++;
+        }
+      } catch (e) {}
+    }
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(local));
+    return { count, success: true };
+  } catch (err) {
+    return { count: 0, success: false, error: err.message };
+  }
 }

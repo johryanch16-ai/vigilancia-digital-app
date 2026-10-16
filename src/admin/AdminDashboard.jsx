@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { decryptPassword } from '../lib/crypto';
-import { getLocalTickets, subscribeToTickets, updateLocalTicketStatus } from '../lib/ticketStorage';
+import { getLocalTickets, subscribeToTickets, updateLocalTicketStatus, syncPendingLocalTickets } from '../lib/ticketStorage';
 
 export default function AdminDashboard() {
   const [tickets, setTickets] = useState([]);
@@ -45,7 +45,7 @@ export default function AdminDashboard() {
   const [visiblePasswords, setVisiblePasswords] = useState({});
 
   useEffect(() => {
-    fetchTickets();
+    syncPendingLocalTickets().then(() => fetchTickets());
 
     // Suscribirse a nuevos tickets en tiempo real
     const unsubscribe = subscribeToTickets(

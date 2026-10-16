@@ -18,7 +18,7 @@ import {
   Maximize2
 } from 'lucide-react';
 import { BRANCH_NAMES } from './lib/branches';
-import { createTicket, getLocalTickets, subscribeToTickets } from './lib/ticketStorage.js';
+import { createTicket, getLocalTickets, subscribeToTickets, syncPendingLocalTickets, resendTicketToSupabase, resendAllPendingTickets } from './lib/ticketStorage.js';
 
 const TicketForm = ({ currentUser }) => {
   // Inicializar sucursal automticamente segn el usuario conectado
@@ -33,6 +33,42 @@ const TicketForm = ({ currentUser }) => {
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [resendingId, setResendingId] = useState(null);
+  const [resendSuccessId, setResendSuccessId] = useState(null);
+  const [resendingAll, setResendingAll] = useState(false);
+  const [resendNotice, setResendNotice] = useState(null);
+
+  const handleResendSingle = async (ticketId) => {
+    setResendingId(ticketId);
+    setResendNotice(null);
+    const result = await resendTicketToSupabase(ticketId);
+    setResendingId(null);
+    if (result.success) {
+      setResendSuccessId(ticketId);
+      setResendNotice('✅ ¡Ticket reenviado exitosamente a Johryan y Johnny!');
+      loadRecentTickets();
+      setTimeout(() => setResendSuccessId(null), 4000);
+      setTimeout(() => setResendNotice(null), 5000);
+    } else {
+      setResendNotice('⚠️ Error al reenviar: ' + (result.message || 'Verifique la conexión'));
+    }
+  };
+
+  const handleResendAll = async () => {
+    const branchName = currentUser?.branch || currentUser?.name || formData.branch;
+    setResendingAll(true);
+    setResendNotice(null);
+    const result = await resendAllPendingTickets(branchName);
+    setResendingAll(false);
+    loadRecentTickets();
+    if (result.success) {
+      setResendNotice(`✅ ¡Se reenviaron ${result.count} reporte(s) a Johryan y Johnny exitosamente!`);
+      setTimeout(() => setResendNotice(null), 6000);
+    } else {
+      setResendNotice('⚠️ Error al reenviar reportes');
+    }
+  };
+
   const [successTicket, setSuccessTicket] = useState(null);
   const [recentBranchTickets, setRecentBranchTickets] = useState([]);
 
@@ -58,7 +94,7 @@ const TicketForm = ({ currentUser }) => {
   };
 
   useEffect(() => {
-    loadRecentTickets();
+    syncPendingLocalTickets().then(() => loadRecentTickets());
     const unsubscribe = subscribeToTickets(
       () => loadRecentTickets(),
       () => loadRecentTickets(),
@@ -536,17 +572,38 @@ const TicketForm = ({ currentUser }) => {
 
       {/* Apartado en vivo: Incidencias Enviadas por esta Sucursal y su Estado */}
       <div className="border-t border-slate-700/80 bg-[#0a1128]/70 p-5 sm:p-7">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
           <div className="flex items-center gap-2">
             <Clock className="w-5 h-5 text-cyan-400" />
             <h3 className="text-sm sm:text-base font-bold text-white">
               Estado de Incidencias Enviadas por {currentUser?.name || formData.branch || 'esta Cuenta'}
             </h3>
           </div>
-          <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 border border-slate-700">
-            {recentBranchTickets.length} {recentBranchTickets.length === 1 ? 'reporte' : 'reportes'}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 border border-slate-700">
+              {recentBranchTickets.length} {recentBranchTickets.length === 1 ? 'reporte' : 'reportes'}
+            </span>
+            {recentBranchTickets.length > 0 && (
+              <button
+                type="button"
+                onClick={handleResendAll}
+                disabled={resendingAll}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-cyan-600/90 hover:bg-cyan-500 text-white shadow-md transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+                title="Reenviar todos los reportes de esta sucursal a los administradores"
+              >
+                <Send className={`w-3.5 h-3.5 ${resendingAll ? 'animate-pulse' : ''}`} />
+                <span>{resendingAll ? 'Reenviando...' : 'Reenviar todos a Soporte'}</span>
+              </button>
+            )}
+          </div>
         </div>
+
+        {resendNotice && (
+          <div className="mb-3 p-3 rounded-xl bg-cyan-950/60 border border-cyan-500/50 text-cyan-200 text-xs font-semibold flex items-center justify-between">
+            <span>{resendNotice}</span>
+            <button type="button" onClick={() => setResendNotice(null)} className="text-cyan-400 hover:text-white ml-2">×</button>
+          </div>
+        )}
 
         {recentBranchTickets.length === 0 ? (
           <p className="text-xs sm:text-sm text-slate-500 py-3">
@@ -573,8 +630,21 @@ const TicketForm = ({ currentUser }) => {
                   <p className="text-[11px] text-slate-400 mt-0.5 line-clamp-1">{ticket.description}</p>
                 </div>
 
-                <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-800/80">
+                <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2.5 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-800/80">
                   <span className="text-[11px] text-slate-500">{ticket.date.split(',')[0]}</span>
+                  
+                  {/* Botón Reenviar individual */}
+                  <button
+                    type="button"
+                    onClick={() => handleResendSingle(ticket.id)}
+                    disabled={resendingId === ticket.id}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-lg bg-cyan-950 text-cyan-300 border border-cyan-700/80 hover:bg-cyan-900 hover:text-white transition-all cursor-pointer active:scale-95 disabled:opacity-50"
+                    title="Reenviar este reporte a Johryan y Johnny"
+                  >
+                    <Send className={`w-3 h-3 ${resendingId === ticket.id ? 'animate-spin' : ''}`} />
+                    <span>{resendingId === ticket.id ? 'Enviando...' : resendSuccessId === ticket.id ? '¡Reenviado!' : 'Reenviar'}</span>
+                  </button>
+
                   {ticket.status === 'Resuelto' ? (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-950/70 text-emerald-400 border border-emerald-800">
                       <CheckCircle2 className="w-3.5 h-3.5" /> Solucionado
