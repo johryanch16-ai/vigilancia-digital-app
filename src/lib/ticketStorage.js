@@ -8,11 +8,55 @@ const channel = typeof window !== 'undefined' && 'BroadcastChannel' in window
   ? new BroadcastChannel(CHANNEL_NAME)
   : null;
 
+function getTicketSignature(t) {
+  const title = (t.title || '').trim().toLowerCase();
+  const desc = (t.description || '').trim().toLowerCase();
+  const rep = (t.reporter_name || t.user || t.zone || t.branch || '').trim().toLowerCase();
+  return `${title}||${desc}||${rep}`;
+}
+
+export function deduplicateTickets(tickets) {
+  if (!Array.isArray(tickets)) return [];
+  const seenIds = new Set();
+  const seenSigs = new Map();
+
+  const result = [];
+  for (const t of tickets) {
+    if (!t) continue;
+    const idKey = t.db_id || t.id;
+    const sigKey = getTicketSignature(t);
+
+    if (idKey && seenIds.has(idKey)) {
+      continue;
+    }
+
+    if (seenSigs.has(sigKey)) {
+      // Si ya vimos uno con la misma información, conservar el que tenga db_id
+      const existing = seenSigs.get(sigKey);
+      if (!existing.db_id && t.db_id) {
+        // Reemplazar el que no tenía db_id con el que sí tiene
+        const idx = result.indexOf(existing);
+        if (idx !== -1) {
+          result[idx] = t;
+          seenSigs.set(sigKey, t);
+        }
+      }
+      continue;
+    }
+
+    if (idKey) seenIds.add(idKey);
+    seenSigs.set(sigKey, t);
+    result.push(t);
+  }
+  return result;
+}
+
 export function getLocalTickets() {
   if (typeof window === 'undefined') return [];
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
+    const parsed = raw ? JSON.parse(raw) : [];
+    return deduplicateTickets(parsed);
   } catch (e) {
     return [];
   }
@@ -22,8 +66,12 @@ export function saveLocalTicket(ticket) {
   if (typeof window === 'undefined') return;
   try {
     const existing = getLocalTickets();
-    const updated = [ticket, ...existing.filter(t => t.id !== ticket.id)];
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    const sig = getTicketSignature(ticket);
+    const updated = [
+      ticket,
+      ...existing.filter(t => t.id !== ticket.id && (!ticket.db_id || t.db_id !== ticket.db_id) && getTicketSignature(t) !== sig)
+    ];
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(deduplicateTickets(updated)));
   } catch (e) {}
 }
 
@@ -152,6 +200,25 @@ export function getNextTicketNumber() {
 }
 
 export async function createTicket({ title, description, priority, branch, category, reporterName, image, imageName }) {
+  const cleanTitle = (title || '').trim();
+  const cleanDesc = (description || '').trim();
+  const cleanReporter = (reporterName || branch || 'Sucursal').trim();
+
+  // 1. Evitar duplicados por doble clic o envíos seguidos idénticos (ventana de 60 segundos)
+  const existingLocal = getLocalTickets();
+  const oneMinuteAgo = Date.now() - 60 * 1000;
+  const recentDuplicate = existingLocal.find(t => 
+    t.title.trim().toLowerCase() === cleanTitle.toLowerCase() &&
+    t.description.trim().toLowerCase() === cleanDesc.toLowerCase() &&
+    (t.reporter_name || t.user || '').trim().toLowerCase() === cleanReporter.toLowerCase() &&
+    new Date(t.created_at || t.rawDate || 0).getTime() > oneMinuteAgo
+  );
+
+  if (recentDuplicate) {
+    console.warn('Ticket duplicado prevenido: ya existe un reporte idéntico creado hace instantes.');
+    return recentDuplicate;
+  }
+
   const generatedId = getNextTicketNumber();
   const nowIso = new Date().toISOString();
   const displayDate = new Date().toLocaleString();
@@ -159,14 +226,14 @@ export async function createTicket({ title, description, priority, branch, categ
   const ticketObj = {
     id: generatedId,
     displayId: generatedId,
-    title: title.trim(),
-    description: description.trim(),
+    title: cleanTitle,
+    description: cleanDesc,
     priority: priority || 'Media',
     status: 'Abierto',
     zone: branch || 'Sin especificar',
     category: category || 'General',
-    user: reporterName || branch || 'Sucursal',
-    reporter_name: reporterName || branch || 'Sucursal',
+    user: cleanReporter,
+    reporter_name: cleanReporter,
     image: image || null,
     image_name: imageName || null,
     date: displayDate,
@@ -174,6 +241,7 @@ export async function createTicket({ title, description, priority, branch, categ
     created_at: nowIso
   };
 
+  // Guardar primero en local
   saveLocalTicket(ticketObj);
 
   if (channel) {
@@ -184,20 +252,35 @@ export async function createTicket({ title, description, priority, branch, categ
     window.dispatchEvent(new CustomEvent('vigilancia:new_ticket', { detail: ticketObj }));
   }
 
+  // Insertar en Supabase verificando primero que no exista uno idéntico en DB
   try {
-    const { data, error } = await supabase
+    const { data: dbMatches } = await supabase
       .from('tickets')
-      .insert([{
-        title: ticketObj.title,
-        description: ticketObj.description,
-        priority: ticketObj.priority,
-        status: 'Abierto',
-        reporter_name: ticketObj.user
-      }])
-      .select();
+      .select('id')
+      .eq('title', ticketObj.title)
+      .eq('reporter_name', ticketObj.reporter_name)
+      .order('created_at', { ascending: false })
+      .limit(1);
 
-    if (!error && data && data[0]) {
-      ticketObj.db_id = data[0].id;
+    if (dbMatches && dbMatches.length > 0) {
+      ticketObj.db_id = dbMatches[0].id;
+      saveLocalTicket(ticketObj);
+    } else {
+      const { data, error } = await supabase
+        .from('tickets')
+        .insert([{
+          title: ticketObj.title,
+          description: ticketObj.description,
+          priority: ticketObj.priority,
+          status: 'Abierto',
+          reporter_name: ticketObj.reporter_name
+        }])
+        .select();
+
+      if (!error && data && data[0]) {
+        ticketObj.db_id = data[0].id;
+        saveLocalTicket(ticketObj);
+      }
     }
   } catch (err) {}
 
@@ -348,13 +431,12 @@ export function subscribeToTickets(onNewTicket, onStatusChange, onTicketUpdated)
 }
 
 
-// Reenviar un ticket específico a Supabase directamente
+// Reenviar un ticket específico a Supabase evitando duplicados
 export async function resendTicketToSupabase(ticketId) {
   try {
     const local = getLocalTickets();
     let ticket = local.find(t => t.id === ticketId || t.db_id === ticketId);
 
-    // Si no está en local, intentar obtenerlo de Supabase para re-notificar
     if (!ticket) {
       try {
         const { data } = await supabase.from('tickets').select('*').eq('id', ticketId).single();
@@ -377,63 +459,82 @@ export async function resendTicketToSupabase(ticketId) {
 
     if (!ticket) return { success: false, message: 'Ticket no encontrado' };
 
-    let newDbId = ticket.db_id;
-    if (!ticket.db_id) {
-      const { data, error } = await supabase
-        .from('tickets')
-        .insert([{
-          title: ticket.title,
-          description: ticket.description,
-          priority: ticket.priority || 'Media',
-          status: ticket.status || 'Abierto',
-          reporter_name: ticket.reporter_name || ticket.user || ticket.zone || ticket.branch || 'Sucursal'
-        }])
-        .select();
-
-      if (error) {
-        return { success: false, message: error.message };
-      }
-
-      if (data && data[0]) {
-        newDbId = data[0].id;
-        ticket.db_id = newDbId;
-      }
-    } else {
+    // Si ya tiene db_id, YA EXISTE en Supabase: NO HACER INSERT NUEVO!
+    if (ticket.db_id) {
       try {
         await supabase
           .from('tickets')
           .update({ status: ticket.status || 'Abierto' })
           .eq('id', ticket.db_id);
       } catch (err) {}
+
+      ticket.last_resend = new Date().toISOString();
+      saveLocalTicket(ticket);
+
+      if (channel) channel.postMessage({ type: 'NEW_TICKET', ticket });
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('vigilancia:new_ticket', { detail: ticket }));
+      }
+      return { success: true, db_id: ticket.db_id, alreadyExisted: true };
     }
 
-    ticket.last_resend = new Date().toISOString();
+    // Si no tiene db_id, verificar si ya existe en Supabase antes de insertar
+    const repName = ticket.reporter_name || ticket.user || ticket.zone || ticket.branch || 'Sucursal';
+    const { data: existingInDb } = await supabase
+      .from('tickets')
+      .select('id')
+      .eq('title', ticket.title)
+      .eq('reporter_name', repName)
+      .order('created_at', { ascending: false })
+      .limit(1);
 
-    // Guardar en almacenamiento local
-    const currentLocal = getLocalTickets();
-    const existingIndex = currentLocal.findIndex(t => t.id === ticket.id || (ticket.db_id && t.db_id === ticket.db_id));
-    if (existingIndex !== -1) {
-      currentLocal[existingIndex] = { ...currentLocal[existingIndex], ...ticket };
-    } else {
-      currentLocal.unshift(ticket);
-    }
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(currentLocal));
+    if (existingInDb && existingInDb.length > 0) {
+      ticket.db_id = existingInDb[0].id;
+      ticket.last_resend = new Date().toISOString();
+      saveLocalTicket(ticket);
 
-    // Emitir en vivo para Johryan y Johnny
-    if (channel) {
-      channel.postMessage({ type: 'NEW_TICKET', ticket });
-    }
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('vigilancia:new_ticket', { detail: ticket }));
+      if (channel) channel.postMessage({ type: 'NEW_TICKET', ticket });
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('vigilancia:new_ticket', { detail: ticket }));
+      }
+      return { success: true, db_id: existingInDb[0].id, alreadyExisted: true };
     }
 
-    return { success: true, db_id: newDbId };
+    // Únicamente si no existe en absoluto en Supabase se hace insert
+    const { data, error } = await supabase
+      .from('tickets')
+      .insert([{
+        title: ticket.title,
+        description: ticket.description,
+        priority: ticket.priority || 'Media',
+        status: ticket.status || 'Abierto',
+        reporter_name: repName
+      }])
+      .select();
+
+    if (error) {
+      return { success: false, message: error.message };
+    }
+
+    if (data && data[0]) {
+      ticket.db_id = data[0].id;
+      ticket.last_resend = new Date().toISOString();
+      saveLocalTicket(ticket);
+
+      if (channel) channel.postMessage({ type: 'NEW_TICKET', ticket });
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('vigilancia:new_ticket', { detail: ticket }));
+      }
+      return { success: true, db_id: data[0].id };
+    }
+
+    return { success: false, message: 'Sin respuesta de base de datos' };
   } catch (err) {
     return { success: false, message: err.message };
   }
 }
 
-// Reenviar todos los tickets a Supabase
+// Reenviar todos los tickets evitando inserciones duplicadas
 export async function resendAllPendingTickets(branchFilter = null) {
   try {
     const local = getLocalTickets();
@@ -451,25 +552,36 @@ export async function resendAllPendingTickets(branchFilter = null) {
     for (const t of toResend) {
       try {
         if (!t.db_id) {
-          const { data, error } = await supabase
+          // Chequear primero si ya existe en Supabase
+          const rep = t.reporter_name || t.user || t.zone || t.branch || 'Sucursal';
+          const { data: exists } = await supabase
             .from('tickets')
-            .insert([{
-              title: t.title,
-              description: t.description,
-              priority: t.priority || 'Media',
-              status: t.status || 'Abierto',
-              reporter_name: t.reporter_name || t.user || t.zone || t.branch || 'Sucursal'
-            }])
-            .select();
+            .select('id')
+            .eq('title', t.title)
+            .eq('reporter_name', rep)
+            .limit(1);
 
-          if (!error && data && data[0]) {
-            t.db_id = data[0].id;
+          if (exists && exists.length > 0) {
+            t.db_id = exists[0].id;
+          } else {
+            const { data, error } = await supabase
+              .from('tickets')
+              .insert([{
+                title: t.title,
+                description: t.description,
+                priority: t.priority || 'Media',
+                status: t.status || 'Abierto',
+                reporter_name: rep
+              }])
+              .select();
+
+            if (!error && data && data[0]) {
+              t.db_id = data[0].id;
+            }
           }
         }
         t.last_resend = new Date().toISOString();
-        if (channel) {
-          channel.postMessage({ type: 'NEW_TICKET', ticket: t });
-        }
+        if (channel) channel.postMessage({ type: 'NEW_TICKET', ticket: t });
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('vigilancia:new_ticket', { detail: t }));
         }
@@ -477,7 +589,7 @@ export async function resendAllPendingTickets(branchFilter = null) {
       } catch (e) {}
     }
 
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(local));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(deduplicateTickets(local)));
     return { count, success: true };
   } catch (err) {
     return { count: 0, success: false, error: err.message };

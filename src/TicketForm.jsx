@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import { BRANCH_NAMES } from './lib/branches';
-import { createTicket, getLocalTickets, subscribeToTickets, syncPendingLocalTickets, resendTicketToSupabase, resendAllPendingTickets } from './lib/ticketStorage.js';
+import { createTicket, getLocalTickets, deduplicateTickets, subscribeToTickets, syncPendingLocalTickets, resendTicketToSupabase, resendAllPendingTickets } from './lib/ticketStorage.js';
 
 const TicketForm = ({ currentUser }) => {
   // Inicializar sucursal automticamente segn el usuario conectado
@@ -103,12 +103,7 @@ const TicketForm = ({ currentUser }) => {
       }
     } catch(e) {}
 
-    const combined = [...all];
-    for (const r of remote) {
-      if (!combined.some(l => l.id === r.id || l.db_id === r.id)) {
-        combined.push(r);
-      }
-    }
+    const combined = deduplicateTickets([...all, ...remote]);
 
     const branchName = currentUser?.branch || currentUser?.name || formData.branch || '';
     const isUserAdmin = currentUser?.role === 'admin' || ['johryan', 'johnny', 'administración'].includes(branchName.toLowerCase());

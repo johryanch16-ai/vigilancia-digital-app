@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { decryptPassword } from '../lib/crypto';
-import { getLocalTickets, subscribeToTickets, updateLocalTicketStatus, syncPendingLocalTickets } from '../lib/ticketStorage';
+import { getLocalTickets, deduplicateTickets, subscribeToTickets, updateLocalTicketStatus, syncPendingLocalTickets } from '../lib/ticketStorage';
 
 export default function AdminDashboard() {
   const [tickets, setTickets] = useState([]);
@@ -101,13 +101,8 @@ export default function AdminDashboard() {
           rawDate: t.created_at
         }));
 
-        // Combinar sin duplicados
-        const combined = [...local];
-        mappedRemote.forEach(rem => {
-          if (!combined.some(c => c.id === rem.id)) {
-            combined.push(rem);
-          }
-        });
+        // Combinar sin duplicados usando firma de contenido e IDs
+        const combined = deduplicateTickets([...mappedRemote, ...local]);
         setTickets(combined);
         return;
       }

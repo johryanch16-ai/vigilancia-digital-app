@@ -4,7 +4,7 @@ import TicketForm from './TicketForm';
 import ClientPasswords from './ClientPasswords';
 import { LogOut, RefreshCw, Ticket, Lock, UserCircle, ChevronDown, Building2, CheckCircle2, Clock, AlertCircle, ListOrdered, X, Camera, Download, Maximize2 } from 'lucide-react';
 import { supabase } from './lib/supabase';
-import { subscribeToTickets, getLocalTickets, syncPendingLocalTickets, resendTicketToSupabase, resendAllPendingTickets } from './lib/ticketStorage';
+import { subscribeToTickets, getLocalTickets, deduplicateTickets, syncPendingLocalTickets, resendTicketToSupabase, resendAllPendingTickets } from './lib/ticketStorage';
 import { playSuccessChime } from './lib/notificationAudio';
 import Logo from './components/Logo';
 
@@ -116,18 +116,8 @@ function AppClient() {
       }
     } catch (e) {}
 
-    // Combinar sin duplicados
-    const combined = [...local];
-    for (const r of remote) {
-      const existing = combined.find(l => l.id === r.id || l.db_id === r.id);
-      if (existing) {
-        existing.db_id = r.id;
-        existing.inDatabase = true;
-        if (r.status) existing.status = r.status;
-      } else {
-        combined.push(r);
-      }
-    }
+    // Combinar y desduplicar estrictamente por contenido e ID
+    const combined = deduplicateTickets([...local, ...remote]);
 
     setTotalAllTickets(combined.length);
 
