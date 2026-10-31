@@ -1,18 +1,43 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Building2, MapPin, Tags, Settings, LogOut, Bell, Search, Menu, X, Monitor, Archive, Users, ExternalLink, ShieldAlert } from 'lucide-react';
+import { 
+  LayoutDashboard, 
+  Building2, 
+  MapPin, 
+  Tags, 
+  Settings, 
+  LogOut, 
+  Bell, 
+  Search, 
+  Menu, 
+  X, 
+  Monitor, 
+  Archive, 
+  Users, 
+  ExternalLink, 
+  ShieldAlert,
+  Volume2
+} from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { subscribeToTickets } from '../lib/ticketStorage';
-import { playNotificationSound } from '../lib/notificationAudio';
 import Logo from '../components/Logo';
+import { 
+  isNotificationUser, 
+  getNotificationSettings, 
+  triggerTicketAlert 
+} from '../lib/notifications';
+import NotificationSettingsModal from '../components/NotificationSettingsModal';
 
 export default function AdminLayout() {
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [notifications, setNotifications] = useState(0);
   const [latestAlert, setLatestAlert] = useState(null);
+  const [isNotifModalOpen, setIsNotifModalOpen] = useState(false);
 
   const adminUser = typeof window !== 'undefined' ? localStorage.getItem('admin_user') : '';
+  const isAuthorizedAdmin = isNotificationUser(adminUser);
+  const [notifSettings, setNotifSettings] = useState(() => getNotificationSettings(adminUser));
 
   // Verificación de seguridad
   useEffect(() => {
@@ -21,98 +46,98 @@ export default function AdminLayout() {
     }
   }, [navigate, adminUser]);
 
-  // Solicitar permiso de notificaciones de escritorio
+  // Actualizar configuración cuando cambie
   useEffect(() => {
-    if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
-      Notification.requestPermission();
-    }
-  }, []);
+    setNotifSettings(getNotificationSettings(adminUser));
+  }, [adminUser, isNotifModalOpen]);
 
   // Escuchar tickets en tiempo real (Vía BroadcastChannel, eventos locales y Supabase)
   useEffect(() => {
     const unsubscribe = subscribeToTickets((newTicket) => {
       setNotifications(prev => prev + 1);
-      playNotificationSound();
 
-      const branchName = newTicket.zone || newTicket.user || 'Sucursal';
-      setLatestAlert({
-        id: newTicket.id,
-        branch: branchName,
-        title: newTicket.title,
-        priority: newTicket.priority
-      });
+      // Solo para Johnny y Johryan con alertas activadas
+      if (isAuthorizedAdmin) {
+        triggerTicketAlert(newTicket, adminUser);
 
-      setTimeout(() => {
-        setLatestAlert(prev => (prev?.id === newTicket.id ? null : prev));
-      }, 7000);
+        const currentSettings = getNotificationSettings(adminUser);
+        if (currentSettings.enabled && currentSettings.floating) {
+          const branchName = newTicket.zone || newTicket.user || 'Sucursal';
+          setLatestAlert({
+            id: newTicket.id,
+            branch: branchName,
+            title: newTicket.title,
+            priority: newTicket.priority
+          });
 
-      if ("Notification" in window && Notification.permission === "granted") {
-        new Notification(`🚨 Incidencia en ${branchName}`, {
-          body: `Asunto: ${newTicket.title}\nSeveridad: ${newTicket.priority || 'Media'}`,
-          icon: '/logo.svg'
-        });
+          setTimeout(() => {
+            setLatestAlert(prev => (prev?.id === newTicket.id ? null : prev));
+          }, 8000);
+        }
       }
     });
 
     return () => {
       unsubscribe();
     };
-  }, []);
+  }, [adminUser, isAuthorizedAdmin]);
 
   const navigation = [
-    { name: 'Dashboard', to: '/admin/tickets', icon: LayoutDashboard },
-    { name: 'Tickets por Sucursal', to: '/admin/branch-tickets', icon: Building2 },
-    { name: 'Bitácora y Concluidos', to: '/admin/bitacora', icon: Archive },
-    { name: 'Usuarios Sucursales', to: '/admin/users', icon: Users },
-    { name: 'Equipos', to: '/admin/equipos', icon: Monitor },
-    { name: 'Zonas y Sucursales', to: '/admin/zones', icon: MapPin },
-    { name: 'Categorías', to: '/admin/categories', icon: Tags },
+    { name: 'Dashboard', to: '/admin', icon: LayoutDashboard },
+    { name: 'Incidencias', to: '/admin/tickets', icon: ShieldAlert },
+    { name: 'Sucursales', to: '/admin/branches', icon: Building2 },
+    { name: 'Sistemas', to: '/admin/categories', icon: Tags },
+    { name: 'Zonas / Ubicaciones', to: '/admin/zones', icon: MapPin },
+    { name: 'Usuarios', to: '/admin/users', icon: Users },
+    { name: 'Histórico', to: '/admin/history', icon: Archive },
     { name: 'Configuración', to: '/admin/settings', icon: Settings },
   ];
 
   return (
-    <div className="min-h-screen bg-[#0a1128] flex flex-col md:flex-row font-sans">
+    <div className="flex h-screen bg-[#070d19] font-sans text-slate-100 overflow-hidden">
       
-      {/* Toast Alert Flotante para Johryan y Johnny */}
+      {/* Floating In-App Banner for new ticket alerts */}
       {latestAlert && (
-        <div className="fixed top-4 right-4 left-4 sm:left-auto sm:w-96 z-50 bg-[#0f172a] border-2 border-red-500/60 rounded-2xl p-4 shadow-[0_0_30px_rgba(239,68,68,0.4)] animate-in slide-in-from-top-4 flex items-start gap-3 text-white">
-          <div className="p-2 bg-red-500/20 text-red-400 rounded-xl shrink-0">
-            <ShieldAlert className="w-6 h-6 animate-pulse" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between gap-1">
-              <span className="text-[10px] font-black uppercase tracking-wider text-red-400 bg-red-950/60 px-2 py-0.5 rounded-full border border-red-800">
-                ¡Nueva Incidencia!
+        <div 
+          onClick={() => {
+            navigate('/admin/tickets');
+            setLatestAlert(null);
+          }}
+          className="fixed top-20 right-6 z-50 max-w-sm w-full p-4 rounded-2xl bg-[#0f172a]/95 border-2 border-cyan-500/80 text-white shadow-[0_10px_30px_rgba(0,0,0,0.5),0_0_20px_rgba(6,182,212,0.3)] backdrop-blur-md cursor-pointer animate-in slide-in-from-top-4 duration-300"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <span className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-cyan-500"></span>
               </span>
-              <button 
-                onClick={() => setLatestAlert(null)}
-                className="text-slate-400 hover:text-white p-1"
-              >
-                <X className="w-4 h-4" />
-              </button>
+              <span className="text-xs font-black uppercase tracking-wider text-cyan-400">
+                🚨 Nuevo Ticket: {latestAlert.branch}
+              </span>
             </div>
-            <h4 className="text-sm font-bold text-white mt-1 truncate">
-              {latestAlert.branch}: <span className="font-normal text-slate-200">{latestAlert.title}</span>
-            </h4>
-            <div className="flex items-center gap-2 mt-2">
-              <button 
-                onClick={() => {
-                  setLatestAlert(null);
-                  navigate('/admin/tickets');
-                }}
-                className="text-xs font-bold px-3 py-1 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg transition-colors cursor-pointer"
-              >
-                Ver en Dashboard
-              </button>
-            </div>
+            <button 
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setLatestAlert(null);
+              }}
+              className="text-slate-400 hover:text-white p-0.5 rounded"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="mt-2 text-sm font-semibold text-slate-100 line-clamp-1">
+            {latestAlert.title}
+          </div>
+          <div className="mt-1 flex items-center justify-between text-[11px] text-slate-400">
+            <span>Prioridad: <strong className="text-amber-400 uppercase">{latestAlert.priority || 'Media'}</strong></span>
+            <span className="text-cyan-300 underline font-medium">Ver incidencia &rarr;</span>
           </div>
         </div>
       )}
 
-      {/* Sidebar Desktop */}
-      <div className="hidden md:flex md:w-64 md:flex-col bg-slate-900 border-r border-slate-800 shrink-0">
-        
-        {/* Header con Logo Profesional Vectorial */}
+      {/* Desktop Sidebar */}
+      <div className="hidden md:flex md:w-64 md:flex-col bg-[#0f172a] border-r border-slate-800 shrink-0">
         <div className="h-20 flex items-center px-5 border-b border-slate-800">
           <Logo variant="sidebar" subtitle="S.A." />
         </div>
@@ -185,14 +210,43 @@ export default function AdminLayout() {
               </div>
             </div>
 
-            {/* Right: Notifications & Current Admin */}
-            <div className="flex items-center gap-3 sm:gap-4">
+            {/* Right: Notification Controls & Current Admin */}
+            <div className="flex items-center gap-2 sm:gap-3">
+
+              {/* Botón de Activación / Configuración de Notificaciones (Johnny & Johryan) */}
+              {isAuthorizedAdmin && (
+                <button
+                  type="button"
+                  onClick={() => setIsNotifModalOpen(true)}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                    notifSettings.enabled
+                      ? 'bg-slate-800/90 border-cyan-500/40 text-cyan-300 hover:bg-slate-700/80 shadow-[0_0_15px_rgba(6,182,212,0.15)]'
+                      : 'bg-amber-950/40 border-amber-500/50 text-amber-300 hover:bg-amber-900/40 shadow-[0_0_15px_rgba(245,158,11,0.25)] animate-pulse'
+                  }`}
+                  title="Configurar y activar notificaciones de tickets"
+                >
+                  <span className={`w-2 h-2 rounded-full ${notifSettings.enabled ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]' : 'bg-amber-400'}`}></span>
+                  <Bell className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">
+                    {notifSettings.enabled ? 'Notificaciones Activas' : 'Activar Notificaciones'}
+                  </span>
+                </button>
+              )}
+
               <button 
-                onClick={() => setNotifications(0)}
-                title={notifications > 0 ? `${notifications} incidencias nuevas (clic para limpiar)` : 'Sin notificaciones pendientes'}
+                type="button"
+                onClick={() => {
+                  if (notifications > 0) {
+                    setNotifications(0);
+                    navigate('/admin/tickets');
+                  } else if (isAuthorizedAdmin) {
+                    setIsNotifModalOpen(true);
+                  }
+                }}
+                title={notifications > 0 ? `${notifications} incidencias nuevas (clic para ver)` : 'Ajustes de alertas'}
                 className="relative bg-slate-800/80 p-2 rounded-xl text-slate-300 hover:text-white hover:bg-slate-700 transition-colors cursor-pointer"
               >
-                <Bell className="h-5 w-5" />
+                <Bell className="w-5 h-5" />
                 {notifications > 0 && (
                   <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-black text-white ring-2 ring-[#0f172a] animate-bounce">
                     {notifications}
@@ -226,6 +280,7 @@ export default function AdminLayout() {
               <div className="flex items-center justify-between px-5 mb-5 pb-4 border-b border-slate-800">
                 <Logo variant="sidebar" subtitle="Panel Control" />
                 <button 
+                  type="button"
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer"
                 >
@@ -254,7 +309,20 @@ export default function AdminLayout() {
               </div>
 
               <div className="border-t border-slate-800 p-4 space-y-2 bg-[#0a1128]">
+                {isAuthorizedAdmin && (
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      setIsMobileMenuOpen(false);
+                      setIsNotifModalOpen(true);
+                    }} 
+                    className="w-full flex items-center px-3 py-2.5 text-sm font-medium text-cyan-300 hover:text-white hover:bg-slate-800 rounded-xl cursor-pointer"
+                  >
+                    <Bell className="h-4 w-4 mr-3 text-cyan-400" /> Alertas de Tickets
+                  </button>
+                )}
                 <button 
+                  type="button"
                   onClick={() => {
                     setIsMobileMenuOpen(false);
                     navigate('/cliente');
@@ -264,6 +332,7 @@ export default function AdminLayout() {
                   <ExternalLink className="h-4 w-4 mr-3 text-cyan-400" /> Formulario Incidencias
                 </button>
                 <button 
+                  type="button"
                   onClick={() => {
                     localStorage.removeItem('admin_user');
                     localStorage.removeItem('user_role');
@@ -283,6 +352,16 @@ export default function AdminLayout() {
           <Outlet />
         </main>
       </div>
+
+      {/* Modal de Configuración y Activación de Notificaciones */}
+      <NotificationSettingsModal 
+        isOpen={isNotifModalOpen}
+        onClose={() => {
+          setIsNotifModalOpen(false);
+          setNotifSettings(getNotificationSettings(adminUser));
+        }}
+        currentUser={adminUser}
+      />
     </div>
   );
 }

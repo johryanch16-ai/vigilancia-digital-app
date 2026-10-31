@@ -2,11 +2,13 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import TicketForm from './TicketForm';
 import ClientPasswords from './ClientPasswords';
-import { LogOut, RefreshCw, Ticket, Lock, UserCircle, ChevronDown, Building2, CheckCircle2, Clock, AlertCircle, ListOrdered, X, Camera, Download, Maximize2 } from 'lucide-react';
+import { Bell, LogOut, RefreshCw, Ticket, Lock, UserCircle, ChevronDown, Building2, CheckCircle2, Clock, AlertCircle, ListOrdered, X, Camera, Download, Maximize2 } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import { subscribeToTickets, getLocalTickets, deduplicateTickets, syncPendingLocalTickets, resendTicketToSupabase, resendAllPendingTickets } from './lib/ticketStorage';
 import { playSuccessChime } from './lib/notificationAudio';
 import Logo from './components/Logo';
+import { isNotificationUser, triggerTicketAlert } from './lib/notifications';
+import NotificationSettingsModal from './components/NotificationSettingsModal';
 
 function AppClient() {
   const navigate = useNavigate();
@@ -22,6 +24,7 @@ function AppClient() {
   const [resendSuccessId, setResendSuccessId] = useState(null);
   const [resendingAll, setResendingAll] = useState(false);
   const [resendNotice, setResendNotice] = useState(null);
+  const [isNotifModalOpen, setIsNotifModalOpen] = useState(false);
 
   const handleResendSingle = async (ticketId) => {
     setResendingId(ticketId);
@@ -284,6 +287,17 @@ function AppClient() {
               <ListOrdered className="w-4 h-4 text-cyan-400" />
               <span>Historial de Reportes ({totalAllTickets || myTickets.length})</span>
             </button>
+
+            {!isAdmin ? null : !isNotificationUser(clientName) ? null : (
+              <button
+                onClick={() => setIsNotifModalOpen(true)}
+                className="px-3 py-2 bg-slate-800/80 hover:bg-slate-700 border border-cyan-500/40 text-cyan-300 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-sm"
+                title="Configurar Notificaciones de Tickets"
+              >
+                <Bell className="w-4 h-4 text-cyan-400" />
+                <span className="hidden sm:inline">Alertas</span>
+              </button>
+            )}
 
             {/* Profile Dropdown */}
             <button 
@@ -589,6 +603,12 @@ function AppClient() {
         </div>
       )}
 
+    {/* Modal de Configuración de Notificaciones */}
+      <NotificationSettingsModal 
+        isOpen={isNotifModalOpen} 
+        onClose={() => setIsNotifModalOpen(false)} 
+        currentUser={clientName} 
+      />
     </div>
   );
 }
