@@ -7,12 +7,31 @@ import { playNotificationSound } from './notificationAudio.js';
 export const NOTIFICATION_USERS = ['johnny', 'johryan'];
 
 /**
- * Verifica si un usuario está autorizado para recibir alertas de tickets
+ * Obtiene el usuario activo actual desde localStorage
+ */
+export function getActiveUser() {
+  if (typeof window === 'undefined') return '';
+  const admin = localStorage.getItem('admin_user');
+  if (admin && admin.trim()) return admin.trim();
+  
+  const clientRaw = localStorage.getItem('client_user');
+  if (clientRaw) {
+    try {
+      const parsed = JSON.parse(clientRaw);
+      if (parsed?.name) return parsed.name.trim();
+      if (parsed?.branch) return parsed.branch.trim();
+    } catch (e) {}
+  }
+  return '';
+}
+
+/**
+ * Verifica si un usuario está autorizado para recibir alertas de tickets (Johnny o Johryan)
  */
 export function isNotificationUser(username) {
-  if (!username) return false;
-  const clean = username.toString().toLowerCase().trim();
-  return NOTIFICATION_USERS.includes(clean);
+  const candidate = (username || getActiveUser() || '').toString().toLowerCase().trim();
+  if (!candidate) return false;
+  return NOTIFICATION_USERS.includes(candidate);
 }
 
 const SETTINGS_KEY_PREFIX = 'vigilancia_notif_config_';
@@ -21,8 +40,8 @@ const SETTINGS_KEY_PREFIX = 'vigilancia_notif_config_';
  * Obtiene la configuración de notificaciones para el usuario especificado.
  */
 export function getNotificationSettings(username) {
-  const userKey = (username || '').toString().toLowerCase().trim();
-  const isAuth = isNotificationUser(userKey);
+  const user = (username || getActiveUser() || '').toString().toLowerCase().trim();
+  const isAuth = NOTIFICATION_USERS.includes(user);
 
   const defaultSettings = {
     enabled: isAuth,
@@ -45,7 +64,7 @@ export function getNotificationSettings(username) {
   if (typeof window === 'undefined') return defaultSettings;
 
   try {
-    const raw = localStorage.getItem(SETTINGS_KEY_PREFIX + userKey);
+    const raw = localStorage.getItem(SETTINGS_KEY_PREFIX + user);
     if (!raw) return defaultSettings;
     return { ...defaultSettings, ...JSON.parse(raw) };
   } catch (e) {
@@ -57,12 +76,12 @@ export function getNotificationSettings(username) {
  * Guarda la configuración de notificaciones del usuario
  */
 export function saveNotificationSettings(username, settings) {
-  const userKey = (username || '').toString().toLowerCase().trim();
-  if (typeof window === 'undefined' || !userKey) return;
+  const user = (username || getActiveUser() || '').toString().toLowerCase().trim();
+  if (typeof window === 'undefined' || !user) return;
   try {
-    localStorage.setItem(SETTINGS_KEY_PREFIX + userKey, JSON.stringify(settings));
+    localStorage.setItem(SETTINGS_KEY_PREFIX + user, JSON.stringify(settings));
     window.dispatchEvent(new CustomEvent('vigilancia:notif_settings_changed', {
-      detail: { username: userKey, settings }
+      detail: { username: user, settings }
     }));
   } catch (e) {
     console.error('Error al guardar configuración de notificaciones:', e);
@@ -94,33 +113,49 @@ export async function requestBrowserPermission() {
   }
 }
 
+// Registro en memoria de tickets ya alertados para no repetir sonido/notificación en 30 minutos
+const recentAlertedTicketIds = new Set();
+
 /**
  * Dispara la alerta completa cuando se crea un nuevo ticket.
  * Solo se ejecuta si el usuario actual es Johnny o Johryan y tiene activada la opción.
  */
 export function triggerTicketAlert(ticket, currentUser) {
-  if (!isNotificationUser(currentUser)) {
+  const targetUser = currentUser || getActiveUser();
+  if (!isNotificationUser(targetUser)) {
     return false;
   }
 
-  const settings = getNotificationSettings(currentUser);
+  const ticketKey = ticket?.db_id || ticket?.id || (ticket?.title + '::' + ticket?.date);
+  if (ticketKey && recentAlertedTicketIds.has(ticketKey)) {
+    return false; // Ya alertado
+  }
+  if (ticketKey) {
+    recentAlertedTicketIds.add(ticketKey);
+    // Limpiar caché luego de 30 minutos
+    setTimeout(() => recentAlertedTicketIds.delete(ticketKey), 30 * 60 * 1000);
+  }
+
+  const settings = getNotificationSettings(targetUser);
   if (!settings.enabled) {
     return false;
   }
+
+  console.log('🚨 DISPARANDO ALERTA DE NUEVO TICKET PARA:', targetUser, ticket);
 
   // 1. Alerta Acústica
   if (settings.sound) {
     try {
       playNotificationSound();
     } catch (e) {
-      console.warn('No se pudo reproducir audio:', e);
+      console.warn('Fallo al reproducir audio de alerta:', e);
     }
   }
 
   // 2. Vibración háptica en móviles
   if (settings.vibration && typeof navigator !== 'undefined' && navigator.vibrate) {
     try {
-      navigator.vibrate([200, 100, 200, 100, 300]);
+      navigator.vibrate([250, 100, 250, 100, 350]);
     } catch (e) {}
   }
 
@@ -129,10 +164,11 @@ export function triggerTicketAlert(ticket, currentUser) {
     try {
       const branchName = ticket.zone || ticket.branch || ticket.user || ticket.reporter_name || 'Sucursal';
       const notif = new Notification('🚨 Nuevo Ticket: ' + branchName, {
-        body: 'Asunto: ' + (ticket.title || 'Incidencia') + '\nPrioridad: ' + (ticket.priority || 'Media'),
+        body: 'Asunto: ' + (ticket.title || 'Incidencia') + '\nPrioridad: ' + (ticket.priority || 'Media') + '\n' + (ticket.description ? ticket.description.slice(0, 80) : ''),
         icon: '/logo.svg',
         tag: 'ticket-' + (ticket.id || Date.now()),
-        renotify: true
+        renotify: true,
+        requireInteraction: true
       });
 
       notif.onclick = () => {
@@ -141,8 +177,14 @@ export function triggerTicketAlert(ticket, currentUser) {
         } catch (e) {}
       };
     } catch (e) {
-      console.warn('Error al emitir notificación de escritorio:', e);
+      console.warn('Error al emitir notificación nativa de escritorio:', e);
     }
+  }
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('vigilancia:ticket_alert_triggered', { 
+      detail: { ticket, user: targetUser } 
+    }));
   }
 
   return true;
@@ -152,7 +194,8 @@ export function triggerTicketAlert(ticket, currentUser) {
  * Prueba inmediata de audio y notificación para verificar que todo funciona
  */
 export async function testNotification(currentUser) {
-  if (!isNotificationUser(currentUser)) {
+  const targetUser = currentUser || getActiveUser();
+  if (!isNotificationUser(targetUser)) {
     return { success: false, reason: 'unauthorized' };
   }
 
@@ -161,17 +204,21 @@ export async function testNotification(currentUser) {
 
     if (typeof navigator !== 'undefined' && navigator.vibrate) {
       try {
-        navigator.vibrate([150, 80, 150]);
+        navigator.vibrate([180, 80, 180]);
       } catch (e) {}
     }
 
     if (getBrowserPermission() === 'granted') {
       try {
-        new Notification('🚨 Alerta de Prueba - Vigilancia Digital', {
-          body: '¡Hola ' + currentUser + '! Tu sistema de alertas para nuevos tickets está funcionando al 100%.',
+        const n = new Notification('🚨 Alerta de Prueba - Vigilancia Digital', {
+          body: '¡Hola ' + targetUser + '! Tu sistema de alertas para nuevos tickets está funcionando al 100%.',
           icon: '/logo.svg',
-          tag: 'test-notification'
+          tag: 'test-notification',
+          renotify: true
         });
+        n.onclick = () => {
+          try { window.focus(); } catch (e) {}
+        };
       } catch (e) {}
     }
 

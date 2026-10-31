@@ -25,6 +25,7 @@ function AppClient() {
   const [resendingAll, setResendingAll] = useState(false);
   const [resendNotice, setResendNotice] = useState(null);
   const [isNotifModalOpen, setIsNotifModalOpen] = useState(false);
+  const [latestTicketAlert, setLatestTicketAlert] = useState(null);
 
   const handleResendSingle = async (ticketId) => {
     setResendingId(ticketId);
@@ -154,6 +155,21 @@ function AppClient() {
     const unsubscribe = subscribeToTickets(
       (newTicket) => {
         loadMyTickets();
+
+        // Alerta en tiempo real para Johnny y Johryan
+        const activeAdmin = localStorage.getItem('admin_user') || clientName || clientUser?.name;
+        if (isNotificationUser(activeAdmin)) {
+          triggerTicketAlert(newTicket, activeAdmin);
+          setLatestTicketAlert({
+            id: newTicket.id,
+            branch: newTicket.zone || newTicket.user || newTicket.reporter_name || 'Sucursal',
+            title: newTicket.title,
+            priority: newTicket.priority
+          });
+          setTimeout(() => {
+            setLatestTicketAlert(prev => (prev?.id === newTicket.id ? null : prev));
+          }, 8000);
+        }
       },
       (updatedId, newStatus, ticketObj) => {
         loadMyTickets();
@@ -225,6 +241,45 @@ function AppClient() {
   return (
     <div className="min-h-screen bg-[#0a1128] text-white p-3 sm:p-6 lg:p-8 font-sans relative overflow-x-hidden">
       
+      {/* Banner flotante de Nuevo Ticket recibido para Johnny y Johryan */}
+      {latestTicketAlert && (
+        <div 
+          onClick={() => {
+            setActiveView('my_tickets');
+            setLatestTicketAlert(null);
+          }}
+          className="fixed top-5 right-5 left-5 sm:left-auto sm:w-96 z-50 bg-[#0f172a]/95 border-2 border-cyan-500 rounded-2xl p-4 shadow-[0_0_35px_rgba(6,182,212,0.4)] backdrop-blur-md animate-in slide-in-from-top-4 cursor-pointer"
+        >
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-cyan-500"></span>
+              </span>
+              <span className="text-xs font-black uppercase text-cyan-400">
+                🚨 Nuevo Ticket: {latestTicketAlert.branch}
+              </span>
+            </div>
+            <button 
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setLatestTicketAlert(null);
+              }}
+              className="text-slate-400 hover:text-white p-0.5"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="mt-1.5 text-sm font-semibold text-white line-clamp-1">
+            {latestTicketAlert.title}
+          </div>
+          <div className="mt-1 text-[11px] text-cyan-300 font-medium">
+            Prioridad: <strong className="text-amber-400 uppercase">{latestTicketAlert.priority || 'Media'}</strong> • Toca para ver reporte
+          </div>
+        </div>
+      )}
+
       {/* Toast de Notificación cuando se Resuelve Incidencia */}
       {resolvedNotice && (
         <div className="fixed top-5 right-5 left-5 sm:left-auto sm:w-96 z-50 bg-[#0f172a] border-2 border-emerald-500/60 rounded-2xl p-4 shadow-[0_0_30px_rgba(16,185,129,0.3)] animate-in slide-in-from-top-4 flex items-start gap-3">
@@ -288,14 +343,15 @@ function AppClient() {
               <span>Historial de Reportes ({totalAllTickets || myTickets.length})</span>
             </button>
 
-            {!isAdmin ? null : !isNotificationUser(clientName) ? null : (
+            {isNotificationUser(localStorage.getItem('admin_user') || clientName) && (
               <button
+                type="button"
                 onClick={() => setIsNotifModalOpen(true)}
-                className="px-3 py-2 bg-slate-800/80 hover:bg-slate-700 border border-cyan-500/40 text-cyan-300 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-sm"
-                title="Configurar Notificaciones de Tickets"
+                className="px-3 py-2 bg-slate-800/90 hover:bg-slate-700 border border-cyan-500/50 text-cyan-300 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-[0_0_15px_rgba(6,182,212,0.2)]"
+                title="Configurar Notificaciones de Tickets (Johnny y Johryan)"
               >
                 <Bell className="w-4 h-4 text-cyan-400" />
-                <span className="hidden sm:inline">Alertas</span>
+                <span className="hidden sm:inline">Alertas Tickets</span>
               </button>
             )}
 

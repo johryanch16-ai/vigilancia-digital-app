@@ -327,14 +327,43 @@ export async function syncPendingLocalTickets() {
   } catch (e) {}
 }
 
+// Set global de IDs ya conocidos en la sesión para evitar alertas duplicadas
+const globalKnownTicketIds = new Set();
+let isGlobalKnownInitialized = false;
+
+async function initGlobalKnownIds() {
+  if (isGlobalKnownInitialized) return;
+  try {
+    const local = getLocalTickets();
+    local.forEach(t => {
+      if (t.id) globalKnownTicketIds.add(t.id);
+      if (t.db_id) globalKnownTicketIds.add(t.db_id);
+    });
+
+    const { data } = await supabase.from('tickets').select('id, created_at').order('created_at', { ascending: false }).limit(30);
+    if (data && Array.isArray(data)) {
+      data.forEach(t => {
+        if (t.id) globalKnownTicketIds.add(t.id);
+      });
+    }
+  } catch (e) {}
+  isGlobalKnownInitialized = true;
+}
+
 export function subscribeToTickets(onNewTicket, onStatusChange, onTicketUpdated) {
   const handlers = [];
 
-  // BroadcastChannel
+  // Asegurar inicialización de IDs conocidos
+  initGlobalKnownIds();
+
+  // 1. BroadcastChannel (Sincronización instantánea entre pestañas del mismo navegador)
   if (channel) {
     const bcHandler = (event) => {
       if (event.data?.type === 'NEW_TICKET' && onNewTicket) {
-        onNewTicket(event.data.ticket);
+        const t = event.data.ticket;
+        if (t?.id) globalKnownTicketIds.add(t.id);
+        if (t?.db_id) globalKnownTicketIds.add(t.db_id);
+        onNewTicket(t);
       }
       if (event.data?.type === 'STATUS_CHANGED' && onStatusChange) {
         onStatusChange(event.data.id, event.data.status, event.data.ticket);
@@ -351,11 +380,14 @@ export function subscribeToTickets(onNewTicket, onStatusChange, onTicketUpdated)
     handlers.push(() => channel.removeEventListener('message', bcHandler));
   }
 
-  // CustomEvents
+  // 2. CustomEvents en la misma ventana
   if (typeof window !== 'undefined') {
     const ceNewHandler = (event) => {
       if (event.detail && onNewTicket) {
-        onNewTicket(event.detail);
+        const t = event.detail;
+        if (t?.id) globalKnownTicketIds.add(t.id);
+        if (t?.db_id) globalKnownTicketIds.add(t.db_id);
+        onNewTicket(t);
       }
     };
     window.addEventListener('vigilancia:new_ticket', ceNewHandler);
@@ -377,13 +409,17 @@ export function subscribeToTickets(onNewTicket, onStatusChange, onTicketUpdated)
     window.addEventListener('vigilancia:ticket_updated', ceUpdateHandler);
     handlers.push(() => window.removeEventListener('vigilancia:ticket_updated', ceUpdateHandler));
 
-    // Storage Event (otra pestaa)
+    // Storage Event (otra pestaña)
     const storageHandler = (e) => {
       if (e.key === STORAGE_KEY && e.newValue) {
         try {
           const tickets = JSON.parse(e.newValue);
           if (tickets.length > 0 && onNewTicket) {
-            onNewTicket(tickets[0]);
+            const first = tickets[0];
+            if (first?.id && !globalKnownTicketIds.has(first.id)) {
+              globalKnownTicketIds.add(first.id);
+              onNewTicket(first);
+            }
           }
         } catch(err) {}
       }
@@ -392,9 +428,10 @@ export function subscribeToTickets(onNewTicket, onStatusChange, onTicketUpdated)
     handlers.push(() => window.removeEventListener('storage', storageHandler));
   }
 
-  // Supabase Realtime (si est en lnea)
+  // 3. Supabase Realtime (si la replicación postgres_changes está activa)
   try {
-    const subChannel = supabase.channel('realtime:tickets_shared')
+    const subChannelName = 'realtime:tickets_' + Math.random().toString(36).substring(2, 8);
+    const subChannel = supabase.channel(subChannelName)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tickets' }, (payload) => {
         if (payload?.new && onStatusChange) {
           onStatusChange(payload.new.id, payload.new.status, payload.new);
@@ -402,19 +439,25 @@ export function subscribeToTickets(onNewTicket, onStatusChange, onTicketUpdated)
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tickets' }, (payload) => {
         if (payload?.new && onNewTicket) {
+          const p = payload.new;
+          if (p.id && globalKnownTicketIds.has(p.id)) return;
+          if (p.id) globalKnownTicketIds.add(p.id);
+
           const remoteTicket = {
-            id: payload.new.id ? payload.new.id.toString() : getNextTicketNumber(),
-            displayId: (payload.new.id || '').toString(),
-            title: payload.new.title || payload.new.subject || 'Incidencia',
-            description: payload.new.description || '',
-            priority: payload.new.priority || 'Media',
-            status: payload.new.status || 'Abierto',
-            zone: payload.new.zone || 'Sucursal',
-            category: payload.new.category || 'General',
-            user: payload.new.reporter_name || payload.new.client_name || 'Sucursal',
-            image: payload.new.image || null,
-            date: new Date(payload.new.created_at || Date.now()).toLocaleString(),
-            rawDate: payload.new.created_at || new Date().toISOString()
+            id: p.id ? p.id.toString() : getNextTicketNumber(),
+            displayId: (p.id || '').toString(),
+            db_id: p.id,
+            title: p.title || p.subject || 'Incidencia',
+            description: p.description || '',
+            priority: p.priority || 'Media',
+            status: p.status || 'Abierto',
+            zone: p.zone || p.reporter_name || 'Sucursal',
+            category: p.category || 'General',
+            user: p.reporter_name || p.client_name || 'Sucursal',
+            reporter_name: p.reporter_name || 'Sucursal',
+            image: p.image || null,
+            date: new Date(p.created_at || Date.now()).toLocaleString(),
+            rawDate: p.created_at || new Date().toISOString()
           };
           saveLocalTicket(remoteTicket);
           onNewTicket(remoteTicket);
@@ -424,6 +467,72 @@ export function subscribeToTickets(onNewTicket, onStatusChange, onTicketUpdated)
 
     handlers.push(() => supabase.removeChannel(subChannel));
   } catch (err) {}
+
+  // 4. Polling Fallback Inteligente (Garantiza detección en 3.5 segundos entre cualquier dispositivo y red)
+  let pollActive = true;
+  const pollInterval = setInterval(async () => {
+    if (!pollActive) return;
+    try {
+      const { data, error } = await supabase
+        .from('tickets')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (!error && Array.isArray(data) && data.length > 0) {
+        // En la primera iteración si globalKnownTicketIds estaba vacío, registrar existentes
+        if (!isGlobalKnownInitialized) {
+          data.forEach(t => { if (t.id) globalKnownTicketIds.add(t.id); });
+          isGlobalKnownInitialized = true;
+          return;
+        }
+
+        // Buscar tickets nuevos no vistos
+        for (const item of data) {
+          if (!item || !item.id) continue;
+          if (!globalKnownTicketIds.has(item.id)) {
+            globalKnownTicketIds.add(item.id);
+
+            const createdTime = item.created_at ? new Date(item.created_at).getTime() : 0;
+            const isFresh = (Date.now() - createdTime) < 30 * 60 * 1000; // Creado en los últimos 30 min
+
+            const remoteTicket = {
+              id: item.id.toString(),
+              displayId: item.id.toString(),
+              db_id: item.id,
+              title: item.title || item.subject || 'Incidencia',
+              description: item.description || '',
+              priority: item.priority || 'Media',
+              status: item.status || 'Abierto',
+              zone: item.zone || item.reporter_name || 'Sucursal',
+              category: item.category || 'General',
+              user: item.reporter_name || item.client_name || 'Sucursal',
+              reporter_name: item.reporter_name || 'Sucursal',
+              image: item.image || null,
+              date: new Date(item.created_at || Date.now()).toLocaleString(),
+              rawDate: item.created_at || new Date().toISOString()
+            };
+
+            saveLocalTicket(remoteTicket);
+
+            if (channel) {
+              channel.postMessage({ type: 'NEW_TICKET', ticket: remoteTicket });
+            }
+
+            if (isFresh && onNewTicket) {
+              console.log('📡 Nuevo ticket detectado por sincronización Supabase:', remoteTicket.title, 'de:', remoteTicket.reporter_name);
+              onNewTicket(remoteTicket);
+            }
+          }
+        }
+      }
+    } catch (err) {}
+  }, 3500);
+
+  handlers.push(() => {
+    pollActive = false;
+    clearInterval(pollInterval);
+  });
 
   return () => {
     handlers.forEach(cleanup => cleanup());
