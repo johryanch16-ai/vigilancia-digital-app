@@ -1,33 +1,39 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  Building2, 
-  MapPin, 
-  Tags, 
-  Settings, 
-  LogOut, 
-  Bell, 
-  Menu, 
-  X, 
-  Archive, 
-  Users, 
-  ExternalLink, 
+import {
+  LayoutDashboard,
+  Building2,
+  MapPin,
+  Tags,
+  Settings,
+  LogOut,
+  Bell,
+  Menu,
+  X,
+  Archive,
+  Users,
+  ExternalLink,
   ShieldAlert,
   Smartphone,
-  CheckCircle2
+  CheckCircle2,
+  Download
 } from 'lucide-react';
 import { subscribeToTickets, syncPendingLocalTickets } from '../lib/ticketStorage';
 import Logo from '../components/Logo';
-import { 
-  isNotificationUser, 
-  getNotificationSettings, 
+import {
+  isNotificationUser,
+  getNotificationSettings,
   saveNotificationSettings,
   getBrowserPermission,
   requestBrowserPermission,
   triggerTicketAlert,
   testNotification,
-  ensureServiceWorkerRegistration
+  ensureServiceWorkerRegistration,
+  syncServiceWorkerMonitor,
+  clearInstalledAppBadge,
+  isRunningAsInstalledApp,
+  canInstallPwaApp,
+  promptInstallPwaApp
 } from '../lib/notifications';
 import NotificationSettingsModal from '../components/NotificationSettingsModal';
 
@@ -37,33 +43,44 @@ export default function AdminLayout() {
   const [notifications, setNotifications] = useState(0);
   const [latestAlert, setLatestAlert] = useState(null);
   const [isNotifModalOpen, setIsNotifModalOpen] = useState(false);
+  const [canInstallApp, setCanInstallApp] = useState(() => canInstallPwaApp());
+  const [isInstalledApp, setIsInstalledApp] = useState(() => isRunningAsInstalledApp());
 
   const adminUser = typeof window !== 'undefined' ? localStorage.getItem('admin_user') : '';
   const isAuthorizedAdmin = isNotificationUser(adminUser);
   const [notifSettings, setNotifSettings] = useState(() => getNotificationSettings(adminUser));
   const [browserPermission, setBrowserPermission] = useState(() => getBrowserPermission());
 
-  // Verificación de seguridad e inicialización de Service Worker
+  // Verificación de seguridad e inicialización de Service Worker para App instalada
   useEffect(() => {
     if (!adminUser || localStorage.getItem('user_role') !== 'admin') {
       navigate('/');
       return;
     }
-    ensureServiceWorkerRegistration();
+    ensureServiceWorkerRegistration().then(() => {
+      syncServiceWorkerMonitor(adminUser);
+    });
     syncPendingLocalTickets();
   }, [navigate, adminUser]);
 
-  // Actualizar configuración cuando cambie
+  // Actualizar configuración y estado de instalación de App cuando cambie
   useEffect(() => {
     const refreshConfig = () => {
       setNotifSettings(getNotificationSettings(adminUser));
       setBrowserPermission(getBrowserPermission());
+      setCanInstallApp(canInstallPwaApp());
+      setIsInstalledApp(isRunningAsInstalledApp());
+      syncServiceWorkerMonitor(adminUser);
     };
     refreshConfig();
     window.addEventListener('vigilancia:notif_settings_changed', refreshConfig);
+    window.addEventListener('vigilancia:pwa_install_available', refreshConfig);
+    window.addEventListener('vigilancia:pwa_installed', refreshConfig);
     window.addEventListener('focus', refreshConfig);
     return () => {
       window.removeEventListener('vigilancia:notif_settings_changed', refreshConfig);
+      window.removeEventListener('vigilancia:pwa_install_available', refreshConfig);
+      window.removeEventListener('vigilancia:pwa_installed', refreshConfig);
       window.removeEventListener('focus', refreshConfig);
     };
   }, [adminUser, isNotifModalOpen]);
@@ -134,10 +151,10 @@ export default function AdminLayout() {
 
   return (
     <div className="flex h-screen bg-[#070d19] font-sans text-slate-100 overflow-hidden">
-      
+
       {/* Floating In-App Banner for new ticket alerts */}
       {latestAlert && (
-        <div 
+        <div
           onClick={() => {
             navigate('/admin/tickets');
             setLatestAlert(null);
@@ -154,7 +171,7 @@ export default function AdminLayout() {
                 🚨 Nuevo Ticket: {latestAlert.branch}
               </span>
             </div>
-            <button 
+            <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
@@ -189,10 +206,9 @@ export default function AdminLayout() {
                 to={item.to}
                 end={item.end}
                 className={({ isActive }) =>
-                  `group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all ${
-                    isActive
-                      ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-[0_0_15px_rgba(6,182,212,0.3)] font-bold'
-                      : 'text-slate-400 hover:bg-slate-800/80 hover:text-white'
+                  `group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all ${isActive
+                    ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-[0_0_15px_rgba(6,182,212,0.3)] font-bold'
+                    : 'text-slate-400 hover:bg-slate-800/80 hover:text-white'
                   }`
                 }
               >
@@ -204,8 +220,8 @@ export default function AdminLayout() {
         </div>
 
         <div className="flex-shrink-0 border-t border-slate-800 p-4 space-y-3 bg-[#0a1128]/50">
-          <button 
-            onClick={() => navigate('/cliente')} 
+          <button
+            onClick={() => navigate('/cliente')}
             className="w-full flex items-center justify-between px-3 py-2 text-slate-400 hover:text-cyan-400 hover:bg-slate-800/60 rounded-xl transition-all text-sm font-medium cursor-pointer"
           >
             <div className="flex items-center">
@@ -213,13 +229,13 @@ export default function AdminLayout() {
               <span>Ver Formulario Ticket</span>
             </div>
           </button>
-          
-          <button 
+
+          <button
             onClick={() => {
               localStorage.removeItem('admin_user');
               localStorage.removeItem('user_role');
               navigate('/');
-            }} 
+            }}
             className="w-full flex items-center px-3 py-2 text-red-400 hover:text-red-300 hover:bg-red-950/20 rounded-xl transition-all text-sm font-medium cursor-pointer"
           >
             <LogOut className="h-4 w-4 mr-2.5" />
@@ -230,21 +246,21 @@ export default function AdminLayout() {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col w-full min-w-0 overflow-hidden">
-        
+
         {/* Top Navbar */}
         <header className="bg-[#0f172a]/95 backdrop-blur-md shadow-sm border-b border-slate-800 z-20 shrink-0">
           <div className="flex justify-between items-center h-16 px-4 sm:px-6 lg:px-8">
-            
+
             {/* Left: Hamburger & Brand / Title */}
             <div className="flex items-center gap-3">
-              <button 
+              <button
                 onClick={() => setIsMobileMenuOpen(true)}
                 className="md:hidden p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 focus:outline-none cursor-pointer"
                 aria-label="Abrir Menú"
               >
                 <Menu className="h-6 w-6" />
               </button>
-              
+
               <div className="md:hidden">
                 <Logo variant="sidebar" className="scale-90 origin-left" subtitle="S.A." />
               </div>
@@ -252,6 +268,23 @@ export default function AdminLayout() {
 
             {/* Right: Notification Controls & Current Admin */}
             <div className="flex items-center gap-2 sm:gap-3">
+
+              {/* Botón para Instalar como App (PWA) si el dispositivo lo soporta y aún no está instalada */}
+              {canInstallApp && !isInstalledApp && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await promptInstallPwaApp();
+                    setCanInstallApp(canInstallPwaApp());
+                    setIsInstalledApp(isRunningAsInstalledApp());
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white shadow-md cursor-pointer transition-all active:scale-95"
+                  title="Instalar Vigilancia Digital como Aplicación en este dispositivo"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span className="hidden lg:inline">Instalar App</span>
+                </button>
+              )}
 
               {/* Botón de Activación / Configuración de Notificaciones (Johnny & Johryan) */}
               {isAuthorizedAdmin && (
@@ -264,11 +297,10 @@ export default function AdminLayout() {
                       setIsNotifModalOpen(true);
                     }
                   }}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
-                    isFullyActive
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${isFullyActive
                       ? 'bg-slate-800/90 border-cyan-500/40 text-cyan-300 hover:bg-slate-700/80 shadow-[0_0_15px_rgba(6,182,212,0.15)]'
                       : 'bg-amber-950/60 border-amber-500/60 text-amber-300 hover:bg-amber-900/50 shadow-[0_0_15px_rgba(245,158,11,0.3)] animate-pulse'
-                  }`}
+                    }`}
                   title="Configurar y activar notificaciones de tickets en este dispositivo"
                 >
                   <span className={`w-2 h-2 rounded-full ${isFullyActive ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]' : 'bg-amber-400'}`}></span>
@@ -282,9 +314,10 @@ export default function AdminLayout() {
                 </button>
               )}
 
-              <button 
+              <button
                 type="button"
                 onClick={() => {
+                  clearInstalledAppBadge();
                   if (notifications > 0) {
                     setNotifications(0);
                     navigate('/admin/tickets');
@@ -353,15 +386,15 @@ export default function AdminLayout() {
         {/* Mobile Sidebar Overlay Drawer */}
         {isMobileMenuOpen && (
           <div className="fixed inset-0 flex z-50 md:hidden" role="dialog" aria-modal="true">
-            <div 
-              className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm transition-opacity" 
+            <div
+              className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm transition-opacity"
               onClick={() => setIsMobileMenuOpen(false)}
             ></div>
 
             <div className="relative flex-1 flex flex-col max-w-xs w-full pt-5 pb-4 bg-[#0f172a] border-r border-slate-800 z-10 shadow-2xl">
               <div className="flex items-center justify-between px-5 mb-5 pb-4 border-b border-slate-800">
                 <Logo variant="sidebar" subtitle="Panel Control" />
-                <button 
+                <button
                   type="button"
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer"
@@ -378,10 +411,9 @@ export default function AdminLayout() {
                     end={item.end}
                     onClick={() => setIsMobileMenuOpen(false)}
                     className={({ isActive }) =>
-                      `group flex items-center px-3.5 py-3 text-sm font-medium rounded-xl transition-all ${
-                        isActive
-                          ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-bold shadow-md'
-                          : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                      `group flex items-center px-3.5 py-3 text-sm font-medium rounded-xl transition-all ${isActive
+                        ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-bold shadow-md'
+                        : 'text-slate-400 hover:bg-slate-800 hover:text-white'
                       }`
                     }
                   >
@@ -393,34 +425,34 @@ export default function AdminLayout() {
 
               <div className="border-t border-slate-800 p-4 space-y-2 bg-[#0a1128]">
                 {isAuthorizedAdmin && (
-                  <button 
+                  <button
                     type="button"
                     onClick={() => {
                       setIsMobileMenuOpen(false);
                       setIsNotifModalOpen(true);
-                    }} 
+                    }}
                     className="w-full flex items-center px-3 py-2.5 text-sm font-medium text-cyan-300 hover:text-white hover:bg-slate-800 rounded-xl cursor-pointer"
                   >
                     <Bell className="h-4 w-4 mr-3 text-cyan-400" /> Alertas de Tickets
                   </button>
                 )}
-                <button 
+                <button
                   type="button"
                   onClick={() => {
                     setIsMobileMenuOpen(false);
                     navigate('/cliente');
-                  }} 
+                  }}
                   className="w-full flex items-center px-3 py-2.5 text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800 rounded-xl cursor-pointer"
                 >
                   <ExternalLink className="h-4 w-4 mr-3 text-cyan-400" /> Formulario Incidencias
                 </button>
-                <button 
+                <button
                   type="button"
                   onClick={() => {
                     localStorage.removeItem('admin_user');
                     localStorage.removeItem('user_role');
                     navigate('/');
-                  }} 
+                  }}
                   className="w-full flex items-center px-3 py-2.5 text-sm font-bold text-red-400 hover:bg-red-950/20 rounded-xl cursor-pointer"
                 >
                   <LogOut className="h-4 w-4 mr-3" /> Cerrar Sesión
@@ -437,7 +469,7 @@ export default function AdminLayout() {
       </div>
 
       {/* Modal de Configuración y Activación de Notificaciones */}
-      <NotificationSettingsModal 
+      <NotificationSettingsModal
         isOpen={isNotifModalOpen}
         onClose={() => {
           setIsNotifModalOpen(false);

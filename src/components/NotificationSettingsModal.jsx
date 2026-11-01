@@ -10,7 +10,8 @@ import {
   X, 
   ShieldCheck, 
   Smartphone,
-  ExternalLink
+  ExternalLink,
+  Download
 } from 'lucide-react';
 import { 
   getNotificationSettings, 
@@ -19,7 +20,11 @@ import {
   requestBrowserPermission, 
   testNotification,
   isNotificationUser,
-  NOTIFICATION_USERS
+  isRunningAsInstalledApp,
+  isIosDevice,
+  canInstallPwaApp,
+  promptInstallPwaApp,
+  syncServiceWorkerMonitor
 } from '../lib/notifications';
 
 export default function NotificationSettingsModal({ isOpen, onClose, currentUser }) {
@@ -27,6 +32,8 @@ export default function NotificationSettingsModal({ isOpen, onClose, currentUser
   
   const [settings, setSettings] = useState(() => getNotificationSettings(currentUser));
   const [browserPermission, setBrowserPermission] = useState(getBrowserPermission());
+  const [isInstalledApp, setIsInstalledApp] = useState(() => isRunningAsInstalledApp());
+  const [canInstallApp, setCanInstallApp] = useState(() => canInstallPwaApp());
   const [testStatus, setTestStatus] = useState(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
@@ -35,8 +42,11 @@ export default function NotificationSettingsModal({ isOpen, onClose, currentUser
       const current = getNotificationSettings(currentUser);
       setSettings(current);
       setBrowserPermission(getBrowserPermission());
+      setIsInstalledApp(isRunningAsInstalledApp());
+      setCanInstallApp(canInstallPwaApp());
       setTestStatus(null);
       setSaveSuccess(false);
+      syncServiceWorkerMonitor(currentUser);
     }
   }, [isOpen, currentUser]);
 
@@ -261,26 +271,63 @@ export default function NotificationSettingsModal({ isOpen, onClose, currentUser
                 </div>
               </div>
 
-              {/* Browser Permission Box */}
-              <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between">
-                <div className="text-xs">
-                  <div className="text-slate-300 font-medium">Permiso en el Navegador:</div>
-                  <div className="text-[11px] text-slate-400">
-                    Estado: <span className={`font-bold ${browserPermission === 'granted' ? 'text-emerald-400' : browserPermission === 'denied' ? 'text-red-400' : 'text-amber-400'}`}>
-                      {browserPermission === 'granted' ? 'Concedido' : browserPermission === 'denied' ? 'Bloqueado en el navegador' : 'Pendiente de autorizar'}
-                    </span>
+              {/* Browser / App Permission Box */}
+              <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="text-xs">
+                    <div className="text-slate-300 font-medium">
+                      {isInstalledApp ? 'Permiso en la App Instalada:' : 'Permiso en Dispositivo / Navegador:'}
+                    </div>
+                    <div className="text-[11px] text-slate-400">
+                      Estado: <span className={`font-bold ${browserPermission === 'granted' ? 'text-emerald-400' : browserPermission === 'denied' ? 'text-red-400' : 'text-amber-400'}`}>
+                        {browserPermission === 'granted' ? 'Concedido (Listo en App y Navegador)' : browserPermission === 'denied' ? 'Bloqueado en ajustes' : 'Pendiente de autorizar'}
+                      </span>
+                    </div>
                   </div>
+                  {browserPermission !== 'granted' && (
+                    <button
+                      type="button"
+                      onClick={handleRequestPermission}
+                      className="px-3 py-1.5 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      Autorizar
+                    </button>
+                  )}
                 </div>
-                {browserPermission !== 'granted' && (
-                  <button
-                    type="button"
-                    onClick={handleRequestPermission}
-                    className="px-3 py-1.5 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    Autorizar
-                  </button>
-                )}
+
+                {/* Estado de Modo App Instalada (PWA) */}
+                <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px]">
+                  <span className="text-slate-400 flex items-center gap-1.5">
+                    <Smartphone className="w-3.5 h-3.5 text-cyan-400" />
+                    Modo Aplicación (PWA):
+                  </span>
+                  {isInstalledApp ? (
+                    <span className="text-emerald-400 font-bold flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> App Instalada Activa (1er y 2do plano)
+                    </span>
+                  ) : canInstallApp ? (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await promptInstallPwaApp();
+                        setIsInstalledApp(isRunningAsInstalledApp());
+                        setCanInstallApp(canInstallPwaApp());
+                      }}
+                      className="px-2.5 py-1 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-lg flex items-center gap-1 cursor-pointer"
+                    >
+                      <Download className="w-3 h-3" /> Instalar como App
+                    </button>
+                  ) : isIosDevice() ? (
+                    <span className="text-cyan-300 font-medium text-right">
+                      En iPhone: Toca <strong>Compartir → Agregar a inicio</strong>
+                    </span>
+                  ) : (
+                    <span className="text-slate-300 font-semibold">
+                      Compatible (Service Worker Activo)
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Test Button */}

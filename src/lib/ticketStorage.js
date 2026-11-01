@@ -671,15 +671,36 @@ function startCentralEngineIfNeeded() {
     pollSupabaseTickets();
   }, 3000);
 
-  // 5. Al desbloquear el teléfono o volver a la pestaña, consultar de inmediato
+  // 5. Al desbloquear el teléfono o cambiar visibilidad de la App instalada, consultar de inmediato
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
       pollSupabaseTickets();
+    } else if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({
+        type: 'SYNC_SW_MONITOR',
+        payload: { knownIds: Array.from(globalKnownTicketIds) }
+      });
+      navigator.serviceWorker.controller.postMessage({ type: 'CHECK_NOW' });
     }
   });
   window.addEventListener('focus', () => {
     pollSupabaseTickets();
   });
+
+  // 6. Mensajes enviados desde el Service Worker de la App instalada en segundo plano
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', (event) => {
+      if (event.data?.type === 'SW_NEW_TICKET_DETECTED' && event.data.ticket) {
+        const item = event.data.ticket;
+        const idStr = String(item.id || '');
+        if (idStr && !globalKnownTicketIds.has(idStr)) {
+          const remoteTicket = mapSupabaseRowToTicket(item);
+          saveLocalTicket(remoteTicket);
+          notifySubscribersNewTicket(remoteTicket);
+        }
+      }
+    });
+  }
 }
 
 export function subscribeToTickets(onNewTicket, onStatusChange, onTicketUpdated) {

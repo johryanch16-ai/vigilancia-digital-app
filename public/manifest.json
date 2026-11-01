@@ -1,17 +1,56 @@
 {
-  "name": "Vigilancia Digital",
-  "short_name": "VD App",
-  "description": "Plataforma de Operaciones IT",
+  "id": "/",
+  "name": "Vigilancia Digital S.A.",
+  "short_name": "Vigilancia Digital",
+  "description": "Plataforma de Operaciones IT y Control de Incidencias en Tiempo Real",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "window-controls-overlay"],
+  "orientation": "portrait-primary",
   "background_color": "#0a1128",
   "theme_color": "#0a1128",
+  "categories": ["business", "productivity", "utilities"],
   "icons": [
     {
-      "src": "/logo.jpg",
-      "sizes": "192x192 512x512",
-      "type": "image/jpeg",
-      "purpose": "any maskable"
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Panel de Incidencias",
+      "short_name": "Incidencias",
+      "description": "Ver tickets recibidos en tiempo real",
+      "url": "/admin/tickets",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Tickets por Sucursal",
+      "short_name": "Sucursales",
+      "description": "Auditar tickets por sucursal",
+      "url": "/admin/branches",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     }
   ]
 }
