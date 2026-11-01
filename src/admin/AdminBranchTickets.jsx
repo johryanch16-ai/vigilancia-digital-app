@@ -23,9 +23,8 @@ import {
   Layers,
   Sparkles
 } from 'lucide-react';
-import { BRANCH_NAMES } from '../lib/branches.js';
-import { getLocalTickets, updateTicketData, deleteLocalTicket } from '../lib/ticketStorage.js';
-import { supabase } from '../lib/supabase.js';
+import { BRANCH_NAMES, findBranchMatch } from '../lib/branches.js';
+import { fetchAllTicketsFromAllSources, subscribeToTickets, syncPendingLocalTickets, updateTicketData, deleteLocalTicket } from '../lib/ticketStorage.js';
 
 export default function AdminBranchTickets() {
   const [tickets, setTickets] = useState([]);
@@ -47,7 +46,14 @@ export default function AdminBranchTickets() {
   });
 
   useEffect(() => {
-    fetchTickets();
+    syncPendingLocalTickets().then(() => fetchTickets());
+
+    const unsubscribe = subscribeToTickets(
+      () => fetchTickets(),
+      () => fetchTickets(),
+      () => fetchTickets()
+    );
+    return () => unsubscribe();
   }, []);
 
   const showToast = (msg) => {
@@ -56,41 +62,8 @@ export default function AdminBranchTickets() {
   };
 
   const fetchTickets = async () => {
-    const local = getLocalTickets();
-    try {
-      const { data, error } = await supabase
-        .from('tickets')
-        .select('*, zones(name), categories(name)')
-        .order('created_at', { ascending: false });
-
-      if (!error && data) {
-        const mappedRemote = data.map(t => ({
-          id: t.id ? t.id.toString() : 'TKT-' + Math.random().toString(36).substring(2, 6),
-          displayId: (t.id || '').toString(),
-          title: t.title,
-          description: t.description,
-          status: t.status || 'Abierto',
-          priority: t.priority || 'Media',
-          zone: t.zones?.name || t.zone || 'Sucursal',
-          category: t.categories?.name || t.category || 'General',
-          user: t.reporter_name || 'Sucursal',
-          image: t.image || null,
-          date: new Date(t.created_at || Date.now()).toLocaleString(),
-          rawDate: t.created_at
-        }));
-
-        const combined = [...local];
-        mappedRemote.forEach(rem => {
-          if (!combined.some(c => c.id === rem.id)) {
-            combined.push(rem);
-          }
-        });
-        setTickets(combined);
-        return;
-      }
-    } catch(e) {}
-
-    setTickets(local);
+    const all = await fetchAllTicketsFromAllSources();
+    setTickets(all);
   };
 
   const handleOpenEdit = (ticket) => {
@@ -133,19 +106,28 @@ export default function AdminBranchTickets() {
     }
   };
 
+  // Función auxiliar para verificar si un ticket pertenece a una sucursal (tolerante a acentos y alias)
+  const doesTicketMatchBranch = (t, branchName) => {
+    if (!t || !branchName) return false;
+    const target = branchName.trim().toLowerCase();
+    const candidates = [t.zone, t.branch, t.user, t.reporter_name].filter(Boolean);
+    for (const c of candidates) {
+      if (c.trim().toLowerCase() === target) return true;
+      const matched = findBranchMatch(c);
+      if (matched && matched.branch.toLowerCase() === target) return true;
+    }
+    return false;
+  };
+
   // Conteo de tickets por sucursal
   const getBranchCount = (branchName) => {
-    return tickets.filter(t => 
-      (t.zone && t.zone.toLowerCase() === branchName.toLowerCase()) ||
-      (t.user && t.user.toLowerCase() === branchName.toLowerCase())
-    ).length;
+    return tickets.filter(t => doesTicketMatchBranch(t, branchName)).length;
   };
 
   // Conteo de tickets activos/pendientes por sucursal
   const getBranchActiveCount = (branchName) => {
     return tickets.filter(t => 
-      ((t.zone && t.zone.toLowerCase() === branchName.toLowerCase()) ||
-       (t.user && t.user.toLowerCase() === branchName.toLowerCase())) &&
+      doesTicketMatchBranch(t, branchName) &&
       t.status !== 'Resuelto' && t.status !== 'Archivado'
     ).length;
   };
@@ -153,9 +135,7 @@ export default function AdminBranchTickets() {
   // Filtrar tickets según sucursal, buscador y estado
   const filteredTickets = tickets.filter(t => {
     if (selectedBranch !== 'ALL') {
-      const matchBranch = (t.zone && t.zone.toLowerCase() === selectedBranch.toLowerCase()) ||
-                          (t.user && t.user.toLowerCase() === selectedBranch.toLowerCase());
-      if (!matchBranch) return false;
+      if (!doesTicketMatchBranch(t, selectedBranch)) return false;
     }
 
     if (filterOnlyPending) {
@@ -169,6 +149,7 @@ export default function AdminBranchTickets() {
       (t.title && t.title.toLowerCase().includes(term)) ||
       (t.description && t.description.toLowerCase().includes(term)) ||
       (t.zone && t.zone.toLowerCase().includes(term)) ||
+      (t.user && t.user.toLowerCase().includes(term)) ||
       (t.category && t.category.toLowerCase().includes(term))
     );
   });

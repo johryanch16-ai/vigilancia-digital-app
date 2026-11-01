@@ -2,7 +2,7 @@ import { playNotificationSound } from './notificationAudio.js';
 
 /**
  * Usuarios administradores con permiso exclusivo de recibir
- * alertas acústicas y de escritorio por creación de tickets.
+ * alertas acústicas, móviles y de escritorio por creación de tickets.
  */
 export const NOTIFICATION_USERS = ['johnny', 'johryan'];
 
@@ -89,7 +89,7 @@ export function saveNotificationSettings(username, settings) {
 }
 
 /**
- * Consulta el estado actual de los permisos del navegador
+ * Consulta el estado actual de los permisos del navegador / teléfono
  */
 export function getBrowserPermission() {
   if (typeof window === 'undefined' || !('Notification' in window)) {
@@ -99,17 +99,97 @@ export function getBrowserPermission() {
 }
 
 /**
- * Solicita autorización de notificaciones al navegador
+ * Asegura que el Service Worker esté activo para poder mostrar notificaciones en Android / iOS PWA
+ */
+export async function ensureServiceWorkerRegistration() {
+  if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
+    return null;
+  }
+  try {
+    let reg = await navigator.serviceWorker.getRegistration();
+    if (!reg) {
+      reg = await navigator.serviceWorker.register('/sw.js');
+    }
+    return reg;
+  } catch (e) {
+    console.warn('No se pudo obtener ServiceWorkerRegistration:', e);
+    return null;
+  }
+}
+
+/**
+ * Solicita autorización de notificaciones al navegador / teléfono
  */
 export async function requestBrowserPermission() {
   if (typeof window === 'undefined' || !('Notification' in window)) {
     return 'unsupported';
   }
   try {
-    const result = await Notification.requestPermission();
+    await ensureServiceWorkerRegistration();
+    // Compatibilidad con promesa y callback antiguo (Safari/iOS)
+    const result = await new Promise((resolve) => {
+      try {
+        const maybePromise = Notification.requestPermission((perm) => resolve(perm));
+        if (maybePromise && typeof maybePromise.then === 'function') {
+          maybePromise.then(resolve).catch(() => resolve(Notification.permission || 'default'));
+        }
+      } catch (e) {
+        resolve(Notification.permission || 'default');
+      }
+    });
     return result;
   } catch (err) {
     return Notification.permission || 'default';
+  }
+}
+
+/**
+ * Emite una notificación del sistema compatible tanto con teléfonos móviles
+ * (vía ServiceWorkerRegistration.showNotification, obligatorio en Android/iOS)
+ * como con computadoras de escritorio (fallback a new Notification).
+ */
+export async function showSystemNotification(title, options = {}) {
+  if (typeof window === 'undefined' || !('Notification' in window)) {
+    return false;
+  }
+  if (Notification.permission !== 'granted') {
+    return false;
+  }
+
+  const notifOptions = {
+    body: options.body || '',
+    icon: options.icon || '/logo.jpg',
+    badge: options.badge || '/logo.jpg',
+    tag: options.tag || 'ticket-' + Date.now(),
+    renotify: true,
+    requireInteraction: options.requireInteraction !== undefined ? options.requireInteraction : true,
+    vibrate: options.vibrate || [300, 120, 300, 120, 400],
+    data: options.data || { url: '/admin/tickets' }
+  };
+
+  // 1. Intentar vía Service Worker (Requerido por Chrome Android, Samsung Internet e iOS PWA)
+  try {
+    const reg = await ensureServiceWorkerRegistration();
+    if (reg && typeof reg.showNotification === 'function') {
+      await reg.showNotification(title, notifOptions);
+      return true;
+    }
+  } catch (swErr) {
+    console.warn('Fallo en reg.showNotification, intentando fallback directo:', swErr);
+  }
+
+  // 2. Fallback directo para navegadores de escritorio
+  try {
+    const notif = new Notification(title, notifOptions);
+    notif.onclick = () => {
+      try {
+        window.focus();
+      } catch (e) {}
+    };
+    return true;
+  } catch (err) {
+    console.warn('Error al emitir notificación nativa:', err);
+    return false;
   }
 }
 
@@ -128,7 +208,7 @@ export function triggerTicketAlert(ticket, currentUser) {
 
   const ticketKey = ticket?.db_id || ticket?.id || (ticket?.title + '::' + ticket?.date);
   if (ticketKey && recentAlertedTicketIds.has(ticketKey)) {
-    return false; // Ya alertado
+    return false; // Ya alertado recientemente
   }
   if (ticketKey) {
     recentAlertedTicketIds.add(ticketKey);
@@ -155,30 +235,30 @@ export function triggerTicketAlert(ticket, currentUser) {
   // 2. Vibración háptica en móviles
   if (settings.vibration && typeof navigator !== 'undefined' && navigator.vibrate) {
     try {
-      navigator.vibrate([250, 100, 250, 100, 350]);
+      navigator.vibrate([300, 120, 300, 120, 400]);
     } catch (e) {}
   }
 
-  // 3. Notificación nativa de escritorio del sistema operativo / navegador
+  // 3. Notificación nativa en el teléfono / escritorio
   if (settings.desktop && getBrowserPermission() === 'granted') {
-    try {
-      const branchName = ticket.zone || ticket.branch || ticket.user || ticket.reporter_name || 'Sucursal';
-      const notif = new Notification('🚨 Nuevo Ticket: ' + branchName, {
-        body: 'Asunto: ' + (ticket.title || 'Incidencia') + '\nPrioridad: ' + (ticket.priority || 'Media') + '\n' + (ticket.description ? ticket.description.slice(0, 80) : ''),
-        icon: '/logo.svg',
-        tag: 'ticket-' + (ticket.id || Date.now()),
-        renotify: true,
-        requireInteraction: true
-      });
-
-      notif.onclick = () => {
-        try {
-          window.focus();
-        } catch (e) {}
-      };
-    } catch (e) {
-      console.warn('Error al emitir notificación nativa de escritorio:', e);
+    const branchName = ticket.zone || ticket.branch || ticket.user || ticket.reporter_name || 'Sucursal';
+    const bodyLines = [
+      `Asunto: ${ticket.title || 'Nueva incidencia reportada'}`,
+      `Prioridad: ${ticket.priority || 'Media'}`
+    ];
+    if (ticket.description) {
+      bodyLines.push(ticket.description.slice(0, 90));
     }
+
+    showSystemNotification(`🚨 Nuevo Ticket: ${branchName}`, {
+      body: bodyLines.join('\n'),
+      icon: '/logo.jpg',
+      badge: '/logo.jpg',
+      tag: 'ticket-' + (ticket.db_id || ticket.id || Date.now()),
+      requireInteraction: true,
+      vibrate: [300, 120, 300, 120, 400],
+      data: { url: '/admin/tickets', ticketId: ticket.id }
+    });
   }
 
   if (typeof window !== 'undefined') {
@@ -191,7 +271,7 @@ export function triggerTicketAlert(ticket, currentUser) {
 }
 
 /**
- * Prueba inmediata de audio y notificación para verificar que todo funciona
+ * Prueba inmediata de audio y notificación en teléfono/escritorio para verificar que todo funciona
  */
 export async function testNotification(currentUser) {
   const targetUser = currentUser || getActiveUser();
@@ -204,25 +284,33 @@ export async function testNotification(currentUser) {
 
     if (typeof navigator !== 'undefined' && navigator.vibrate) {
       try {
-        navigator.vibrate([180, 80, 180]);
+        navigator.vibrate([250, 100, 250]);
       } catch (e) {}
     }
 
-    if (getBrowserPermission() === 'granted') {
-      try {
-        const n = new Notification('🚨 Alerta de Prueba - Vigilancia Digital', {
-          body: '¡Hola ' + targetUser + '! Tu sistema de alertas para nuevos tickets está funcionando al 100%.',
-          icon: '/logo.svg',
-          tag: 'test-notification',
-          renotify: true
-        });
-        n.onclick = () => {
-          try { window.focus(); } catch (e) {}
-        };
-      } catch (e) {}
+    // Si aún no tiene permiso en el teléfono/navegador, solicitarlo automáticamente al probar
+    let perm = getBrowserPermission();
+    if (perm === 'default') {
+      perm = await requestBrowserPermission();
     }
 
-    return { success: true };
+    let notificationSent = false;
+    if (perm === 'granted') {
+      notificationSent = await showSystemNotification('🚨 Nuevo Ticket de Prueba - Vigilancia Digital', {
+        body: `¡Hola ${targetUser}! Así te llegarán al teléfono los avisos cada vez que una sucursal cree un ticket.`,
+        icon: '/logo.jpg',
+        badge: '/logo.jpg',
+        tag: 'test-notification-' + Date.now(),
+        requireInteraction: false,
+        vibrate: [250, 100, 250]
+      });
+    }
+
+    return {
+      success: true,
+      permission: perm,
+      notificationSent
+    };
   } catch (err) {
     console.error('Error en testNotification:', err);
     return { success: false, error: err };

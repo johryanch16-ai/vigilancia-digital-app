@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { 
   Archive, 
@@ -20,8 +20,7 @@ import {
   Download,
   Maximize2
 } from 'lucide-react';
-import { supabase } from '../lib/supabase.js';
-import { getLocalTickets, updateLocalTicketStatus, deleteLocalTicket } from '../lib/ticketStorage.js';
+import { fetchAllTicketsFromAllSources, subscribeToTickets, updateLocalTicketStatus, deleteLocalTicket } from '../lib/ticketStorage.js';
 
 export default function AdminBitacora() {
   const [tickets, setTickets] = useState([]);
@@ -34,6 +33,13 @@ export default function AdminBitacora() {
 
   useEffect(() => {
     fetchArchivedTickets();
+
+    const unsubscribe = subscribeToTickets(
+      () => fetchArchivedTickets(),
+      () => fetchArchivedTickets(),
+      () => fetchArchivedTickets()
+    );
+    return () => unsubscribe();
   }, []);
 
   const showToast = (msg) => {
@@ -42,43 +48,9 @@ export default function AdminBitacora() {
   };
 
   const fetchArchivedTickets = async () => {
-    const local = getLocalTickets();
-    const localArchived = local.filter(t => t.status === 'Archivado' || t.status === 'Resuelto');
-
-    try {
-      const { data, error } = await supabase
-        .from('tickets')
-        .select('*, zones(name), categories(name)')
-        .in('status', ['Archivado', 'Resuelto'])
-        .order('created_at', { ascending: false });
-
-      if (!error && data) {
-        const mappedRemote = data.map(t => ({
-          id: t.id ? t.id.toString() : 'TKT-' + Math.random().toString(36).substring(2, 6),
-          title: t.title,
-          description: t.description,
-          status: t.status,
-          priority: t.priority || 'Media',
-          zone: t.zones?.name || t.zone || 'Sucursal',
-          category: t.categories?.name || t.category || 'General',
-          user: t.reporter_name || 'Sucursal',
-          image: t.image || null,
-          date: new Date(t.created_at || Date.now()).toLocaleString(),
-          rawDate: t.created_at
-        }));
-
-        const combined = [...localArchived];
-        mappedRemote.forEach(rem => {
-          if (!combined.some(c => c.id === rem.id)) {
-            combined.push(rem);
-          }
-        });
-        setTickets(combined);
-        return;
-      }
-    } catch (err) {}
-
-    setTickets(localArchived);
+    const all = await fetchAllTicketsFromAllSources();
+    const historical = all.filter(t => t.status === 'Archivado' || t.status === 'Resuelto');
+    setTickets(historical);
   };
 
   const handleRestore = async (id, e) => {

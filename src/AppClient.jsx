@@ -7,7 +7,7 @@ import { supabase } from './lib/supabase';
 import { subscribeToTickets, getLocalTickets, deduplicateTickets, syncPendingLocalTickets, resendTicketToSupabase, resendAllPendingTickets } from './lib/ticketStorage';
 import { playSuccessChime } from './lib/notificationAudio';
 import Logo from './components/Logo';
-import { isNotificationUser, triggerTicketAlert } from './lib/notifications';
+import { isNotificationUser, triggerTicketAlert, showSystemNotification } from './lib/notifications';
 import NotificationSettingsModal from './components/NotificationSettingsModal';
 
 function AppClient() {
@@ -186,12 +186,12 @@ function AppClient() {
               title: ticketObj?.title || 'Reporte de incidencia'
             });
 
-            if ("Notification" in window && Notification.permission === "granted") {
-              new Notification('Incidencia Solucionada', {
-                body: `Tu reporte #${updatedId} ha sido resuelto por soporte.`,
-                icon: '/logo.svg'
-              });
-            }
+            showSystemNotification('✅ Incidencia Solucionada', {
+              body: `Tu reporte #${updatedId} (${ticketObj?.title || 'Incidencia'}) ha sido resuelto por soporte.`,
+              icon: '/logo.jpg',
+              badge: '/logo.jpg',
+              tag: 'resolved-' + updatedId
+            });
           }
         }
       }

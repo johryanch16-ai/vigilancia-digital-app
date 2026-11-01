@@ -64,15 +64,18 @@ export default function NotificationSettingsModal({ isOpen, onClose, currentUser
     setTestStatus('probando');
     try {
       const res = await testNotification(currentUser);
-      if (res.success) {
+      setBrowserPermission(getBrowserPermission());
+      if (res.success && res.notificationSent) {
         setTestStatus('ok');
+      } else if (res.success && !res.notificationSent) {
+        setTestStatus('audio_only');
       } else {
         setTestStatus('error');
       }
     } catch {
       setTestStatus('error');
     }
-    setTimeout(() => setTestStatus(null), 3500);
+    setTimeout(() => setTestStatus(null), 5000);
   };
 
   return (
@@ -296,7 +299,14 @@ export default function NotificationSettingsModal({ isOpen, onClose, currentUser
               {testStatus === 'ok' && (
                 <div className="p-2.5 rounded-lg bg-emerald-950/40 border border-emerald-500/40 text-emerald-300 text-xs flex items-center gap-2 animate-in fade-in">
                   <CheckCircle2 className="w-4 h-4 shrink-0" />
-                  <span>¡Alerta emitida con éxito! Si no sonó, revisa el volumen de tu equipo.</span>
+                  <span>¡Notificación enviada a tu teléfono/pantalla y sonido reproducido con éxito!</span>
+                </div>
+              )}
+
+              {testStatus === 'audio_only' && (
+                <div className="p-2.5 rounded-lg bg-amber-950/40 border border-amber-500/40 text-amber-300 text-xs flex items-center gap-2 animate-in fade-in">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  <span>Sonó la alerta, pero para que aparezca el mensaje escrito en tu teléfono debes tocar <strong>Autorizar</strong> arriba o habilitar las notificaciones del sitio en el candado del navegador.</span>
                 </div>
               )}
 

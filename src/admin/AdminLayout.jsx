@@ -8,23 +8,26 @@ import {
   Settings, 
   LogOut, 
   Bell, 
-  Search, 
   Menu, 
   X, 
-  Monitor, 
   Archive, 
   Users, 
   ExternalLink, 
   ShieldAlert,
-  Volume2
+  Smartphone,
+  CheckCircle2
 } from 'lucide-react';
-import { supabase } from '../lib/supabase';
-import { subscribeToTickets } from '../lib/ticketStorage';
+import { subscribeToTickets, syncPendingLocalTickets } from '../lib/ticketStorage';
 import Logo from '../components/Logo';
 import { 
   isNotificationUser, 
   getNotificationSettings, 
-  triggerTicketAlert 
+  saveNotificationSettings,
+  getBrowserPermission,
+  requestBrowserPermission,
+  triggerTicketAlert,
+  testNotification,
+  ensureServiceWorkerRegistration
 } from '../lib/notifications';
 import NotificationSettingsModal from '../components/NotificationSettingsModal';
 
@@ -38,20 +41,34 @@ export default function AdminLayout() {
   const adminUser = typeof window !== 'undefined' ? localStorage.getItem('admin_user') : '';
   const isAuthorizedAdmin = isNotificationUser(adminUser);
   const [notifSettings, setNotifSettings] = useState(() => getNotificationSettings(adminUser));
+  const [browserPermission, setBrowserPermission] = useState(() => getBrowserPermission());
 
-  // Verificación de seguridad
+  // Verificación de seguridad e inicialización de Service Worker
   useEffect(() => {
     if (!adminUser || localStorage.getItem('user_role') !== 'admin') {
       navigate('/');
+      return;
     }
+    ensureServiceWorkerRegistration();
+    syncPendingLocalTickets();
   }, [navigate, adminUser]);
 
   // Actualizar configuración cuando cambie
   useEffect(() => {
-    setNotifSettings(getNotificationSettings(adminUser));
+    const refreshConfig = () => {
+      setNotifSettings(getNotificationSettings(adminUser));
+      setBrowserPermission(getBrowserPermission());
+    };
+    refreshConfig();
+    window.addEventListener('vigilancia:notif_settings_changed', refreshConfig);
+    window.addEventListener('focus', refreshConfig);
+    return () => {
+      window.removeEventListener('vigilancia:notif_settings_changed', refreshConfig);
+      window.removeEventListener('focus', refreshConfig);
+    };
   }, [adminUser, isNotifModalOpen]);
 
-  // Escuchar tickets en tiempo real (Vía BroadcastChannel, eventos locales y Supabase)
+  // Escuchar tickets en tiempo real (Vía motor centralizado: Supabase Realtime, Polling 3s, BroadcastChannel)
   useEffect(() => {
     const unsubscribe = subscribeToTickets((newTicket) => {
       setNotifications(prev => prev + 1);
@@ -62,7 +79,7 @@ export default function AdminLayout() {
 
         const currentSettings = getNotificationSettings(adminUser);
         if (currentSettings.enabled && currentSettings.floating) {
-          const branchName = newTicket.zone || newTicket.user || 'Sucursal';
+          const branchName = newTicket.zone || newTicket.branch || newTicket.reporter_name || newTicket.user || 'Sucursal';
           setLatestAlert({
             id: newTicket.id,
             branch: branchName,
@@ -72,7 +89,7 @@ export default function AdminLayout() {
 
           setTimeout(() => {
             setLatestAlert(prev => (prev?.id === newTicket.id ? null : prev));
-          }, 8000);
+          }, 10000);
         }
       }
     });
@@ -82,8 +99,30 @@ export default function AdminLayout() {
     };
   }, [adminUser, isAuthorizedAdmin]);
 
+  const handleQuickEnablePhoneNotifications = async () => {
+    const perm = await requestBrowserPermission();
+    setBrowserPermission(perm);
+    if (perm === 'granted') {
+      const updated = {
+        ...getNotificationSettings(adminUser),
+        enabled: true,
+        sound: true,
+        desktop: true,
+        floating: true,
+        vibration: true
+      };
+      saveNotificationSettings(adminUser, updated);
+      setNotifSettings(updated);
+      await testNotification(adminUser);
+    } else {
+      setIsNotifModalOpen(true);
+    }
+  };
+
+  const isFullyActive = notifSettings.enabled && browserPermission === 'granted';
+
   const navigation = [
-    { name: 'Dashboard', to: '/admin', icon: LayoutDashboard },
+    { name: 'Dashboard', to: '/admin', icon: LayoutDashboard, end: true },
     { name: 'Incidencias', to: '/admin/tickets', icon: ShieldAlert },
     { name: 'Sucursales', to: '/admin/branches', icon: Building2 },
     { name: 'Sistemas', to: '/admin/categories', icon: Tags },
@@ -103,7 +142,7 @@ export default function AdminLayout() {
             navigate('/admin/tickets');
             setLatestAlert(null);
           }}
-          className="fixed top-20 right-6 z-50 max-w-sm w-full p-4 rounded-2xl bg-[#0f172a]/95 border-2 border-cyan-500/80 text-white shadow-[0_10px_30px_rgba(0,0,0,0.5),0_0_20px_rgba(6,182,212,0.3)] backdrop-blur-md cursor-pointer animate-in slide-in-from-top-4 duration-300"
+          className="fixed top-20 right-4 left-4 sm:left-auto sm:right-6 z-50 sm:max-w-sm p-4 rounded-2xl bg-[#0f172a]/95 border-2 border-cyan-500/80 text-white shadow-[0_10px_30px_rgba(0,0,0,0.5),0_0_20px_rgba(6,182,212,0.3)] backdrop-blur-md cursor-pointer animate-in slide-in-from-top-4 duration-300"
         >
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-2.5">
@@ -148,6 +187,7 @@ export default function AdminLayout() {
               <NavLink
                 key={item.name}
                 to={item.to}
+                end={item.end}
                 className={({ isActive }) =>
                   `group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all ${
                     isActive
@@ -217,18 +257,27 @@ export default function AdminLayout() {
               {isAuthorizedAdmin && (
                 <button
                   type="button"
-                  onClick={() => setIsNotifModalOpen(true)}
+                  onClick={() => {
+                    if (browserPermission === 'default') {
+                      handleQuickEnablePhoneNotifications();
+                    } else {
+                      setIsNotifModalOpen(true);
+                    }
+                  }}
                   className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
-                    notifSettings.enabled
+                    isFullyActive
                       ? 'bg-slate-800/90 border-cyan-500/40 text-cyan-300 hover:bg-slate-700/80 shadow-[0_0_15px_rgba(6,182,212,0.15)]'
-                      : 'bg-amber-950/40 border-amber-500/50 text-amber-300 hover:bg-amber-900/40 shadow-[0_0_15px_rgba(245,158,11,0.25)] animate-pulse'
+                      : 'bg-amber-950/60 border-amber-500/60 text-amber-300 hover:bg-amber-900/50 shadow-[0_0_15px_rgba(245,158,11,0.3)] animate-pulse'
                   }`}
-                  title="Configurar y activar notificaciones de tickets"
+                  title="Configurar y activar notificaciones de tickets en este dispositivo"
                 >
-                  <span className={`w-2 h-2 rounded-full ${notifSettings.enabled ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]' : 'bg-amber-400'}`}></span>
+                  <span className={`w-2 h-2 rounded-full ${isFullyActive ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]' : 'bg-amber-400'}`}></span>
                   <Bell className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline">
-                    {notifSettings.enabled ? 'Notificaciones Activas' : 'Activar Notificaciones'}
+                    {isFullyActive ? 'Notificaciones Activas' : 'Activar Avisos en este Dispositivo'}
+                  </span>
+                  <span className="sm:hidden">
+                    {isFullyActive ? 'Activas' : 'Activar'}
                   </span>
                 </button>
               )}
@@ -266,6 +315,39 @@ export default function AdminLayout() {
               </div>
             </div>
           </div>
+
+          {/* Aviso directo en móvil/navegador si aún falta autorizar el permiso del sistema en este teléfono */}
+          {isAuthorizedAdmin && browserPermission !== 'granted' && (
+            <div className="bg-gradient-to-r from-amber-950/90 via-cyan-950/90 to-blue-950/90 border-t border-amber-500/40 px-4 py-2.5 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs">
+              <div className="flex items-center gap-2 text-amber-200 font-medium text-center sm:text-left">
+                <Smartphone className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>
+                  {browserPermission === 'denied'
+                    ? 'El permiso de notificaciones está bloqueado en este navegador. Tócalo en el candado de la barra de dirección para habilitarlo.'
+                    : 'Para que tu teléfono te muestre el mensaje cuando creen un ticket, autoriza las notificaciones en este dispositivo:'}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                {browserPermission === 'default' && (
+                  <button
+                    type="button"
+                    onClick={handleQuickEnablePhoneNotifications}
+                    className="px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-cyan-500 hover:from-amber-400 hover:to-cyan-400 text-slate-950 font-black rounded-lg shadow-md cursor-pointer transition-all active:scale-95 flex items-center gap-1.5"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Permitir en mi Teléfono Ahora
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setIsNotifModalOpen(true)}
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-cyan-300 font-bold rounded-lg border border-slate-600 cursor-pointer"
+                >
+                  Configurar / Probar
+                </button>
+              </div>
+            </div>
+          )}
         </header>
 
         {/* Mobile Sidebar Overlay Drawer */}
@@ -293,6 +375,7 @@ export default function AdminLayout() {
                   <NavLink
                     key={item.name}
                     to={item.to}
+                    end={item.end}
                     onClick={() => setIsMobileMenuOpen(false)}
                     className={({ isActive }) =>
                       `group flex items-center px-3.5 py-3 text-sm font-medium rounded-xl transition-all ${
@@ -359,6 +442,7 @@ export default function AdminLayout() {
         onClose={() => {
           setIsNotifModalOpen(false);
           setNotifSettings(getNotificationSettings(adminUser));
+          setBrowserPermission(getBrowserPermission());
         }}
         currentUser={adminUser}
       />

@@ -23,13 +23,15 @@ function App() {
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<Navigate to="/admin/tickets" replace />} />
           <Route path="tickets" element={<AdminDashboard />} />
+          <Route path="branches" element={<AdminBranchTickets />} />
+          <Route path="branch-tickets" element={<AdminBranchTickets />} />
           <Route path="equipos" element={<AdminEquipos />} />
           <Route path="zones" element={<AdminZones />} />
           <Route path="categories" element={<AdminCategories />} />
           <Route path="users" element={<AdminUsers />} />
-          <Route path="branch-tickets" element={<AdminBranchTickets />} />
-          <Route path="settings" element={<AdminSettings />} />
+          <Route path="history" element={<AdminBitacora />} />
           <Route path="bitacora" element={<AdminBitacora />} />
+          <Route path="settings" element={<AdminSettings />} />
         </Route>
       </Routes>
     </BrowserRouter>

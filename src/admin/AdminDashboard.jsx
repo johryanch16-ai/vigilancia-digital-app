@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { 
   Filter, 
@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { decryptPassword } from '../lib/crypto';
-import { getLocalTickets, deduplicateTickets, subscribeToTickets, updateLocalTicketStatus, syncPendingLocalTickets } from '../lib/ticketStorage';
+import { fetchAllTicketsFromAllSources, deduplicateTickets, subscribeToTickets, updateLocalTicketStatus, syncPendingLocalTickets } from '../lib/ticketStorage';
 
 export default function AdminDashboard() {
   const [tickets, setTickets] = useState([]);
@@ -50,16 +50,15 @@ export default function AdminDashboard() {
     // Suscribirse a nuevos tickets en tiempo real
     const unsubscribe = subscribeToTickets(
       (newTicket) => {
-        setTickets(prev => {
-          const exists = prev.some(t => t.id === newTicket.id);
-          if (exists) return prev;
-          return [newTicket, ...prev];
-        });
+        setTickets(prev => deduplicateTickets([newTicket, ...prev]));
         const hasImgText = newTicket.image ? ' (con foto)' : '';
         showToast(`Nuevo ticket recibido de: ${newTicket.zone || newTicket.user}${hasImgText}`);
       },
       (updatedId, newStatus) => {
-        setTickets(prev => prev.map(t => t.id === updatedId ? { ...t, status: newStatus } : t));
+        setTickets(prev => prev.map(t => (t.id === updatedId || t.db_id === updatedId) ? { ...t, status: newStatus } : t));
+      },
+      () => {
+        fetchTickets();
       }
     );
 
@@ -74,42 +73,8 @@ export default function AdminDashboard() {
   };
 
   const fetchTickets = async () => {
-    // 1. Obtener tickets locales inmediatos
-    const local = getLocalTickets();
-    
-    // 2. Intentar combinar con Supabase si est disponible
-    try {
-      const { data, error } = await supabase
-        .from('tickets')
-        .select('*, zones(name), categories(name), equipos(name)')
-        .order('created_at', { ascending: false });
-      
-      if (!error && data) {
-        const mappedRemote = data.map(t => ({
-          id: t.id ? t.id.toString() : 'TKT-' + Math.random().toString(36).substring(2, 6),
-          displayId: (t.id || '').toString().substring(0, 8).toUpperCase(),
-          title: t.title,
-          description: t.description,
-          status: t.status || 'Abierto',
-          priority: t.priority || 'Media',
-          zone: t.zones?.name || t.zone || 'Sucursal',
-          category: t.categories?.name || t.category || 'General',
-          equipo: t.equipos?.name || 'Ninguno',
-          user: t.reporter_name || 'Sucursal',
-          image: t.image || null,
-          date: new Date(t.created_at || Date.now()).toLocaleString(),
-          rawDate: t.created_at
-        }));
-
-        // Combinar sin duplicados usando firma de contenido e IDs
-        const combined = deduplicateTickets([...mappedRemote, ...local]);
-        setTickets(combined);
-        return;
-      }
-    } catch (err) {}
-
-    // Fallback con memoria local
-    setTickets(local);
+    const all = await fetchAllTicketsFromAllSources();
+    setTickets(all);
   };
 
   const getPriorityColor = (priority) => {
@@ -162,13 +127,10 @@ export default function AdminDashboard() {
   const handleUpdateStatus = async (id, newStatus, e) => {
     if (e) e.stopPropagation();
     updateLocalTicketStatus(id, newStatus);
-    setTickets(prev => prev.map(t => t.id === id ? { ...t, status: newStatus } : t));
-    if (selectedTicket && selectedTicket.id === id) {
+    setTickets(prev => prev.map(t => (t.id === id || t.db_id === id) ? { ...t, status: newStatus } : t));
+    if (selectedTicket && (selectedTicket.id === id || selectedTicket.db_id === id)) {
       setSelectedTicket(prev => ({ ...prev, status: newStatus }));
     }
-    try {
-      await supabase.from('tickets').update({ status: newStatus }).eq('id', id);
-    } catch (err) {}
     showToast(`Estado de ticket actualizado a "${newStatus}"`);
   };
 
