@@ -119,20 +119,20 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a1128] flex flex-col justify-center py-6 sm:py-10 px-4 sm:px-6 lg:px-8 relative overflow-hidden font-sans">
+    <div className="min-h-[100dvh] bg-[#0a1128] flex flex-col justify-center py-5 sm:py-10 px-3.5 sm:px-6 lg:px-8 relative overflow-x-hidden font-sans safe-top safe-bottom">
       {/* Background decorations */}
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-[350px] sm:w-[600px] h-[350px] sm:h-[600px] bg-blue-600 rounded-full mix-blend-screen filter blur-[100px] sm:blur-[150px] opacity-20"></div>
-        <div className="absolute top-40 -left-20 w-[300px] sm:w-[500px] h-[300px] sm:h-[500px] bg-cyan-500 rounded-full mix-blend-screen filter blur-[100px] sm:blur-[150px] opacity-15"></div>
+        <div className="absolute -top-40 -right-40 w-[300px] sm:w-[600px] h-[300px] sm:h-[600px] bg-blue-600 rounded-full mix-blend-screen filter blur-[100px] sm:blur-[150px] opacity-20"></div>
+        <div className="absolute top-40 -left-20 w-[250px] sm:w-[500px] h-[250px] sm:h-[500px] bg-cyan-500 rounded-full mix-blend-screen filter blur-[100px] sm:blur-[150px] opacity-15"></div>
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHBhdGggZD0iTTAgMGg0MHY0MEgweiIgZmlsbD0ibm9uZSIvPjxwYXRoIGQ9Ik0wIDB2NDBoNDBWMEgweiIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMDMpIiBzdHJva2Utd2lkdGg9IjEiLz48L3N2Zz4=')]"></div>
       </div>
 
-      <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10 text-center">
+      <div className="w-full max-w-md mx-auto relative z-10 text-center">
         <Logo variant="login" subtitle="Plataforma de Operaciones IT" />
       </div>
 
-      <div className="mt-6 sm:mx-auto sm:w-full sm:max-w-md relative z-10 px-2 sm:px-0">
-        <div className="bg-[#0f172a]/95 backdrop-blur-xl py-7 sm:py-8 px-5 sm:px-8 shadow-[0_0_50px_rgba(0,0,0,0.5)] rounded-2xl border border-slate-700/60">
+      <div className="mt-5 sm:mt-6 w-full max-w-md mx-auto relative z-10">
+        <div className="bg-[#0f172a]/95 backdrop-blur-xl py-6 sm:py-8 px-4 sm:px-8 shadow-[0_0_50px_rgba(0,0,0,0.5)] rounded-2xl border border-slate-700/60">
           
           {error && (
             <div className="mb-5 bg-red-900/30 text-red-400 p-3 rounded-xl flex items-center gap-2.5 text-xs sm:text-sm font-semibold border border-red-800 shadow-[0_0_15px_rgba(220,38,38,0.2)]">

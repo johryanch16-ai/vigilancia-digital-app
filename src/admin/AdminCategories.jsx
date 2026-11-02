@@ -120,17 +120,17 @@ export default function AdminCategories() {
         </div>
       )}
 
-      <div className="sm:flex sm:items-center sm:justify-between mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6 sm:mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-            <Layers className="w-6 h-6 text-cyan-400" /> Clasificación de Incidentes
+          <h1 className="text-lg sm:text-2xl font-bold text-white flex items-center gap-2">
+            <Layers className="w-5 h-5 sm:w-6 sm:h-6 text-cyan-400 shrink-0" /> Clasificación de Incidentes
           </h1>
-          <p className="mt-1 text-sm text-slate-400">Define las tipologías de problemas para clasificar los tickets de soporte.</p>
+          <p className="mt-1 text-xs sm:text-sm text-slate-400">Define las tipologías de problemas para clasificar los tickets de soporte.</p>
         </div>
-        <div className="mt-4 sm:mt-0 flex gap-3">
+        <div className="flex gap-3">
           <button 
             onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 border border-transparent rounded-xl text-sm font-bold text-white hover:shadow-[0_0_20px_rgba(37,99,235,0.4)] shadow-sm transition-all cursor-pointer"
+            className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 border border-transparent rounded-xl text-xs sm:text-sm font-bold text-white hover:shadow-[0_0_20px_rgba(37,99,235,0.4)] shadow-sm transition-all cursor-pointer"
           >
             <Plus className="w-4 h-4" /> Nueva Categoría
           </button>
@@ -181,7 +181,8 @@ export default function AdminCategories() {
       )}
 
       <div className="bg-[#0f172a] rounded-2xl shadow-sm border border-slate-800 overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* Vista Tabla Desktop */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="min-w-full divide-y divide-slate-800">
             <thead className="bg-[#0a1128]">
               <tr>
@@ -212,6 +213,29 @@ export default function AdminCategories() {
               ))}
             </tbody>
           </table>
+        </div>
+
+        {/* Vista Móvil en Tarjetas */}
+        <div className="md:hidden divide-y divide-slate-800">
+          {categories.map((category) => (
+            <div key={category.id} className="p-4 flex items-center justify-between gap-3 hover:bg-slate-800/30 transition-colors">
+              <div className="min-w-0 flex-1">
+                <div className="font-bold text-white text-sm leading-snug">{category.name}</div>
+                <div className="mt-1">
+                  <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-900/30 text-emerald-400 border border-emerald-800">
+                    Activa
+                  </span>
+                </div>
+              </div>
+              <button 
+                className="p-2 text-red-400 bg-slate-800/80 rounded-xl border border-slate-700 cursor-pointer shrink-0" 
+                onClick={() => handleDeleteCategory(category.id, category.name)}
+                title="Eliminar Categoría"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
         </div>
       </div>
     </div>

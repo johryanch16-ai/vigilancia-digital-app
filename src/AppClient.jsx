@@ -58,7 +58,6 @@ function AppClient() {
     }
   };
 
-  
   const menuRef = useRef(null);
 
   useEffect(() => {
@@ -239,7 +238,7 @@ function AppClient() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a1128] text-white p-3 sm:p-6 lg:p-8 font-sans relative overflow-x-hidden">
+    <div className="min-h-[100dvh] bg-[#0a1128] text-white p-3 sm:p-6 lg:p-8 pb-20 sm:pb-10 font-sans relative overflow-x-hidden safe-top safe-bottom">
       
       {/* Banner flotante de Nuevo Ticket recibido para Johnny y Johryan */}
       {latestTicketAlert && (
@@ -248,15 +247,15 @@ function AppClient() {
             setActiveView('my_tickets');
             setLatestTicketAlert(null);
           }}
-          className="fixed top-5 right-5 left-5 sm:left-auto sm:w-96 z-50 bg-[#0f172a]/95 border-2 border-cyan-500 rounded-2xl p-4 shadow-[0_0_35px_rgba(6,182,212,0.4)] backdrop-blur-md animate-in slide-in-from-top-4 cursor-pointer"
+          className="fixed top-4 right-3 left-3 sm:left-auto sm:right-5 sm:w-96 z-50 bg-[#0f172a]/95 border-2 border-cyan-500 rounded-2xl p-3.5 sm:p-4 shadow-[0_0_35px_rgba(6,182,212,0.4)] backdrop-blur-md animate-in slide-in-from-top-4 cursor-pointer"
         >
           <div className="flex items-start justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <span className="relative flex h-3 w-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="relative flex h-3 w-3 shrink-0">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-3 w-3 bg-cyan-500"></span>
               </span>
-              <span className="text-xs font-black uppercase text-cyan-400">
+              <span className="text-xs font-black uppercase text-cyan-400 truncate">
                 🚨 Nuevo Ticket: {latestTicketAlert.branch}
               </span>
             </div>
@@ -266,7 +265,7 @@ function AppClient() {
                 e.stopPropagation();
                 setLatestTicketAlert(null);
               }}
-              className="text-slate-400 hover:text-white p-0.5"
+              className="text-slate-400 hover:text-white p-1 shrink-0"
             >
               <X className="w-4 h-4" />
             </button>
@@ -282,7 +281,7 @@ function AppClient() {
 
       {/* Toast de Notificación cuando se Resuelve Incidencia */}
       {resolvedNotice && (
-        <div className="fixed top-5 right-5 left-5 sm:left-auto sm:w-96 z-50 bg-[#0f172a] border-2 border-emerald-500/60 rounded-2xl p-4 shadow-[0_0_30px_rgba(16,185,129,0.3)] animate-in slide-in-from-top-4 flex items-start gap-3">
+        <div className="fixed top-4 right-3 left-3 sm:left-auto sm:right-5 sm:w-96 z-50 bg-[#0f172a] border-2 border-emerald-500/60 rounded-2xl p-3.5 sm:p-4 shadow-[0_0_30px_rgba(16,185,129,0.3)] animate-in slide-in-from-top-4 flex items-start gap-3">
           <div className="p-2 bg-emerald-500/20 text-emerald-400 rounded-xl shrink-0">
             <CheckCircle2 className="w-6 h-6 animate-pulse" />
           </div>
@@ -310,124 +309,170 @@ function AppClient() {
 
       {/* Background decorations */}
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-[350px] sm:w-[600px] h-[350px] sm:h-[600px] bg-blue-600 rounded-full mix-blend-screen filter blur-[100px] sm:blur-[150px] opacity-20"></div>
-        <div className="absolute top-40 -left-20 w-[300px] sm:w-[500px] h-[300px] sm:h-[500px] bg-cyan-500 rounded-full mix-blend-screen filter blur-[100px] sm:blur-[150px] opacity-15"></div>
+        <div className="absolute -top-40 -right-40 w-[300px] sm:w-[600px] h-[300px] sm:h-[600px] bg-blue-600 rounded-full mix-blend-screen filter blur-[100px] sm:blur-[150px] opacity-20"></div>
+        <div className="absolute top-40 -left-20 w-[250px] sm:w-[500px] h-[250px] sm:h-[500px] bg-cyan-500 rounded-full mix-blend-screen filter blur-[100px] sm:blur-[150px] opacity-15"></div>
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHBhdGggZD0iTTAgMGg0MHY0MEgweiIgZmlsbD0ibm9uZSIvPjxwYXRoIGQ9Ik0wIDB2NDBoNDBWMEgweiIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMDMpIiBzdHJva2Utd2lkdGg9IjEiLz48L3N2Zz4=')]"></div>
       </div>
       
       <div className="relative z-10 max-w-4xl mx-auto">
-        <header className="mb-6 sm:mb-8 flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-5">
-          <div 
-            className="flex items-center gap-3 sm:gap-4 cursor-pointer hover:opacity-90 transition-opacity" 
-            onClick={() => setActiveView('tickets')}
-          >
-            <Logo variant="sidebar" subtitle="Plataforma IT" />
-          </div>
-          
-          {/* Menu de Perfil y Navegación */}
-          <div className="relative w-full sm:w-auto flex items-center justify-end gap-2" ref={menuRef}>
+        <header className="mb-4 sm:mb-7 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <div 
+              className="flex items-center gap-2.5 sm:gap-4 cursor-pointer hover:opacity-90 transition-opacity min-w-0" 
+              onClick={() => setActiveView('tickets')}
+            >
+              <Logo variant="sidebar" subtitle="Plataforma IT" />
+            </div>
             
-            {/* Botón para alternar a Historial de mis tickets */}
-            <button
-              onClick={() => {
-                loadMyTickets();
-                setActiveView(activeView === 'my_tickets' ? 'tickets' : 'my_tickets');
-              }}
-              className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border cursor-pointer ${
-                activeView === 'my_tickets' 
-                  ? 'bg-cyan-600 text-white border-cyan-500 shadow-md' 
-                  : 'bg-slate-800/80 text-slate-300 border-slate-700 hover:text-white'
-              }`}
-            >
-              <ListOrdered className="w-4 h-4 text-cyan-400" />
-              <span>Historial de Reportes ({totalAllTickets || myTickets.length})</span>
-            </button>
-
-            {isNotificationUser(localStorage.getItem('admin_user') || clientName) && (
+            {/* Menu de Perfil y Navegación */}
+            <div className="relative flex items-center justify-end gap-2 shrink-0" ref={menuRef}>
+              
+              {/* Botón para alternar a Historial en pantallas medianas/grandes */}
               <button
-                type="button"
-                onClick={() => setIsNotifModalOpen(true)}
-                className="px-3 py-2 bg-slate-800/90 hover:bg-slate-700 border border-cyan-500/50 text-cyan-300 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-[0_0_15px_rgba(6,182,212,0.2)]"
-                title="Configurar Notificaciones de Tickets (Johnny y Johryan)"
+                onClick={() => {
+                  loadMyTickets();
+                  setActiveView(activeView === 'my_tickets' ? 'tickets' : 'my_tickets');
+                }}
+                className={`hidden sm:flex px-3.5 py-2 rounded-xl text-xs font-bold transition-all items-center gap-1.5 border cursor-pointer ${
+                  activeView === 'my_tickets' 
+                    ? 'bg-cyan-600 text-white border-cyan-500 shadow-md' 
+                    : 'bg-slate-800/80 text-slate-300 border-slate-700 hover:text-white'
+                }`}
               >
-                <Bell className="w-4 h-4 text-cyan-400" />
-                <span className="hidden sm:inline">Alertas Tickets</span>
+                <ListOrdered className="w-4 h-4 text-cyan-400" />
+                <span>Historial de Reportes ({totalAllTickets || myTickets.length})</span>
               </button>
-            )}
 
-            {/* Profile Dropdown */}
-            <button 
-              onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-              className="flex items-center gap-2.5 p-1.5 sm:p-2 sm:pr-4 bg-[#0f172a]/90 hover:bg-[#0f172a] border border-slate-700/60 rounded-xl transition-all shadow-lg backdrop-blur-md cursor-pointer"
-            >
-              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-gradient-to-br from-cyan-600 to-blue-600 flex items-center justify-center font-bold text-white text-xs shadow-inner shrink-0">
-                {clientName.charAt(0).toUpperCase()}
-              </div>
-              <div className="text-left hidden sm:block">
-                <div className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Cuenta Conectada</div>
-                <div className="text-xs font-bold text-white truncate max-w-[120px]">
-                  {clientName}
+              {isNotificationUser(localStorage.getItem('admin_user') || clientName) && (
+                <button
+                  type="button"
+                  onClick={() => setIsNotifModalOpen(true)}
+                  className="p-2 sm:px-3 sm:py-2 bg-slate-800/90 hover:bg-slate-700 border border-cyan-500/50 text-cyan-300 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-[0_0_15px_rgba(6,182,212,0.2)]"
+                  title="Configurar Notificaciones de Tickets (Johnny y Johryan)"
+                >
+                  <Bell className="w-4 h-4 text-cyan-400" />
+                  <span className="hidden sm:inline">Alertas Tickets</span>
+                </button>
+              )}
+
+              {/* Profile Dropdown */}
+              <button 
+                onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+                className="flex items-center gap-2 p-1.5 sm:p-2 sm:pr-3.5 bg-[#0f172a]/90 hover:bg-[#0f172a] border border-slate-700/60 rounded-xl transition-all shadow-lg backdrop-blur-md cursor-pointer"
+              >
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-gradient-to-br from-cyan-600 to-blue-600 flex items-center justify-center font-bold text-white text-xs shadow-inner shrink-0">
+                  {clientName.charAt(0).toUpperCase()}
                 </div>
-              </div>
-              <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-300 shrink-0 ${isProfileMenuOpen ? 'rotate-180' : ''}`} />
-            </button>
-
-            {/* Dropdown Menu */}
-            {isProfileMenuOpen && (
-              <div className="absolute right-0 top-full mt-2 w-56 bg-[#0f172a] border border-slate-700 rounded-2xl shadow-2xl overflow-hidden z-50 animate-in slide-in-from-top-2">
-                <div className="p-3 border-b border-slate-800 bg-[#0a1128]/70">
-                  <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Cuenta Actual</div>
-                  <div className="text-sm font-bold text-white flex items-center gap-1.5 mt-0.5">
-                    <Building2 className="w-3.5 h-3.5 text-cyan-400" />
-                    <span className="truncate">{clientName}</span>
+                <div className="text-left">
+                  <div className="text-[9px] text-slate-400 font-bold uppercase tracking-wider hidden sm:block">Cuenta Conectada</div>
+                  <div className="text-xs font-bold text-white truncate max-w-[95px] sm:max-w-[130px]">
+                    {clientName}
                   </div>
                 </div>
-                
-                <div className="p-2 space-y-1">
-                  <button 
-                    onClick={() => {
-                      setActiveView('tickets');
-                      setIsProfileMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-colors cursor-pointer ${activeView === 'tickets' ? 'bg-cyan-900/40 text-cyan-400' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}
-                  >
-                    <Ticket className="w-4 h-4" /> Nuevo Ticket
-                  </button>
+                <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-300 shrink-0 ${isProfileMenuOpen ? 'rotate-180' : ''}`} />
+              </button>
 
-                  <button 
-                    onClick={() => {
-                      loadMyTickets();
-                      setActiveView('my_tickets');
-                      setIsProfileMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-colors cursor-pointer ${activeView === 'my_tickets' ? 'bg-cyan-900/40 text-cyan-400' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}
-                  >
-                    <ListOrdered className="w-4 h-4" /> Mis Incidencias
-                  </button>
+              {/* Dropdown Menu */}
+              {isProfileMenuOpen && (
+                <div className="absolute right-0 top-full mt-2 w-60 bg-[#0f172a] border border-slate-700 rounded-2xl shadow-2xl overflow-hidden z-50 animate-in slide-in-from-top-2">
+                  <div className="p-3.5 border-b border-slate-800 bg-[#0a1128]/70">
+                    <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Cuenta Actual</div>
+                    <div className="text-sm font-bold text-white flex items-center gap-1.5 mt-0.5">
+                      <Building2 className="w-4 h-4 text-cyan-400 shrink-0" />
+                      <span className="truncate">{clientName}</span>
+                    </div>
+                  </div>
                   
-                  {hasPasswords && (
+                  <div className="p-2 space-y-1">
                     <button 
                       onClick={() => {
-                        setActiveView('passwords');
+                        setActiveView('tickets');
                         setIsProfileMenuOpen(false);
                       }}
-                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-colors cursor-pointer ${activeView === 'passwords' ? 'bg-blue-900/30 text-blue-400' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-colors cursor-pointer ${activeView === 'tickets' ? 'bg-cyan-900/40 text-cyan-400' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}
                     >
-                      <Lock className="w-4 h-4" /> Mis Contraseñas
+                      <Ticket className="w-4 h-4" /> Nuevo Ticket
                     </button>
-                  )}
-                </div>
 
-                <div className="p-2 border-t border-slate-800 bg-[#0a1128]/50">
-                  <button 
-                    onClick={handleLogout}
-                    className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs sm:text-sm font-bold text-red-400 hover:bg-red-900/20 transition-colors cursor-pointer"
-                  >
-                    <span>{isAdmin ? 'Volver al Admin' : 'Cerrar Sesión'}</span>
-                    <LogOut className="w-4 h-4" />
-                  </button>
+                    <button 
+                      onClick={() => {
+                        loadMyTickets();
+                        setActiveView('my_tickets');
+                        setIsProfileMenuOpen(false);
+                      }}
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-colors cursor-pointer ${activeView === 'my_tickets' ? 'bg-cyan-900/40 text-cyan-400' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}
+                    >
+                      <ListOrdered className="w-4 h-4" /> Historial ({totalAllTickets || myTickets.length})
+                    </button>
+                    
+                    {hasPasswords && (
+                      <button 
+                        onClick={() => {
+                          setActiveView('passwords');
+                          setIsProfileMenuOpen(false);
+                        }}
+                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-colors cursor-pointer ${activeView === 'passwords' ? 'bg-blue-900/30 text-blue-400' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}
+                      >
+                        <Lock className="w-4 h-4" /> Mis Contraseñas
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="p-2 border-t border-slate-800 bg-[#0a1128]/50">
+                    <button 
+                      onClick={handleLogout}
+                      className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-red-400 hover:bg-red-900/20 transition-colors cursor-pointer"
+                    >
+                      <span>{isAdmin ? 'Volver al Panel Admin' : 'Cerrar Sesión'}</span>
+                      <LogOut className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
+            </div>
+          </div>
+
+          {/* Barra de pestañas táctil para Celulares (visible en < sm) */}
+          <div className="flex sm:hidden items-center gap-1.5 bg-[#0f172a]/90 p-1.5 rounded-2xl border border-slate-800 shadow-md">
+            <button
+              type="button"
+              onClick={() => setActiveView('tickets')}
+              className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                activeView === 'tickets'
+                  ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-md'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Ticket className="w-3.5 h-3.5" />
+              <span>Nuevo Reporte</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                loadMyTickets();
+                setActiveView('my_tickets');
+              }}
+              className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                activeView === 'my_tickets'
+                  ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-md'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <ListOrdered className="w-3.5 h-3.5" />
+              <span>Historial ({totalAllTickets || myTickets.length})</span>
+            </button>
+            {hasPasswords && (
+              <button
+                type="button"
+                onClick={() => setActiveView('passwords')}
+                className={`py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1 transition-all cursor-pointer ${
+                  activeView === 'passwords'
+                    ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-md'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Lock className="w-3.5 h-3.5" />
+              </button>
             )}
           </div>
         </header>
@@ -436,30 +481,38 @@ function AppClient() {
           {activeView === 'tickets' ? (
             <TicketForm currentUser={clientUser} />
           ) : activeView === 'my_tickets' ? (
-            <div className="bg-[#0f172a]/90 backdrop-blur-xl rounded-2xl shadow-xl border border-slate-700/80 p-5 sm:p-7">
+            <div className="bg-[#0f172a]/90 backdrop-blur-xl rounded-2xl shadow-xl border border-slate-700/80 p-4 sm:p-7">
               {/* Encabezado y Acciones */}
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-5 border-b border-slate-800">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5 pb-4 border-b border-slate-800">
                 <div>
-                  <h2 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
-                    <ListOrdered className="w-5 h-5 text-cyan-400" />
-                    <span>Todos los Reportes de Incidencias ({myTickets.length})</span>
+                  <h2 className="text-base sm:text-xl font-bold text-white flex items-center gap-2">
+                    <ListOrdered className="w-5 h-5 text-cyan-400 shrink-0" />
+                    <span>Reportes de Incidencias ({myTickets.length})</span>
                   </h2>
                   <p className="text-xs text-slate-400 mt-1">
-                    Visualice todos los reportes generados. Si algún ticket no aparece en soporte, use el botón <strong className="text-cyan-300">Reenviar</strong>.
+                    Visualice los reportes generados. Si algún ticket no aparece en soporte, use el botón <strong className="text-cyan-300">Reenviar</strong>.
                   </p>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2">
                   {/* Botón Refrescar */}
                   <button
                     type="button"
                     onClick={() => loadMyTickets()}
                     disabled={isLoadingTickets}
-                    className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 font-bold text-xs rounded-xl shadow-md cursor-pointer transition-all active:scale-95 flex items-center gap-1.5"
+                    className="px-3 py-2.5 sm:py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-700 font-bold text-xs rounded-xl shadow-md cursor-pointer transition-all active:scale-95 flex items-center justify-center gap-1.5"
                     title="Actualizar lista desde Supabase"
                   >
-                    <RefreshCw className={`w-3.5 h-3.5 ${isLoadingTickets ? 'animate-spin text-cyan-400' : ''}`} />
-                    <span className="hidden sm:inline">Refrescar</span>
+                    <RefreshCw className={`w-3.5 h-3.5 ${isLoadingTickets ? 'animate-spin text-cyan-400' : 'text-cyan-400'}`} />
+                    <span>Refrescar</span>
+                  </button>
+
+                  {/* Botón Nueva Incidencia */}
+                  <button
+                    onClick={() => setActiveView('tickets')}
+                    className="px-3.5 py-2.5 sm:py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-md cursor-pointer transition-all active:scale-95 flex items-center justify-center"
+                  >
+                    + Nuevo Ticket
                   </button>
 
                   {/* Botón Reenviar Todos */}
@@ -467,19 +520,11 @@ function AppClient() {
                     type="button"
                     onClick={handleResendAll}
                     disabled={resendingAll}
-                    className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-xs rounded-xl shadow-md cursor-pointer transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2"
+                    className="col-span-2 sm:col-span-1 px-4 py-2.5 sm:py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-xs rounded-xl shadow-md cursor-pointer transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
                     title="Reenviar todos los reportes pendientes a Johryan y Johnny"
                   >
                     <Ticket className={`w-4 h-4 ${resendingAll ? 'animate-pulse' : ''}`} />
                     <span>{resendingAll ? 'Reenviando a Soporte...' : 'Reenviar todos a Soporte'}</span>
-                  </button>
-
-                  {/* Botón Nueva Incidencia */}
-                  <button
-                    onClick={() => setActiveView('tickets')}
-                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-md cursor-pointer transition-all active:scale-95"
-                  >
-                    + Nueva Incidencia
                   </button>
                 </div>
               </div>
@@ -492,9 +537,9 @@ function AppClient() {
                     setTicketFilterMode('all');
                     loadMyTickets('all');
                   }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${ticketFilterMode === 'all' ? 'bg-cyan-600 text-white shadow-sm' : 'bg-slate-800 text-slate-400 hover:text-white'}`}
+                  className={`flex-1 sm:flex-initial px-3 py-2 sm:py-1.5 rounded-xl sm:rounded-lg text-xs font-bold transition-all cursor-pointer text-center ${ticketFilterMode === 'all' ? 'bg-cyan-600 text-white shadow-sm' : 'bg-slate-800 text-slate-400 hover:text-white'}`}
                 >
-                  Todos los Reportes ({totalAllTickets || myTickets.length})
+                  Todos ({totalAllTickets || myTickets.length})
                 </button>
                 {!isAdmin && clientUser?.branch && (
                   <button
@@ -503,7 +548,7 @@ function AppClient() {
                       setTicketFilterMode('mine');
                       loadMyTickets('mine');
                     }}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${ticketFilterMode === 'mine' ? 'bg-cyan-600 text-white shadow-sm' : 'bg-slate-800 text-slate-400 hover:text-white'}`}
+                    className={`flex-1 sm:flex-initial px-3 py-2 sm:py-1.5 rounded-xl sm:rounded-lg text-xs font-bold transition-all cursor-pointer text-center truncate ${ticketFilterMode === 'mine' ? 'bg-cyan-600 text-white shadow-sm' : 'bg-slate-800 text-slate-400 hover:text-white'}`}
                   >
                     Solo {clientUser?.branch || clientUser?.name}
                   </button>
@@ -523,19 +568,19 @@ function AppClient() {
                   <span>Cargando reportes del sistema...</span>
                 </div>
               ) : myTickets.length === 0 ? (
-                <div className="text-center py-12 px-4 rounded-xl border border-dashed border-slate-800 bg-slate-900/30">
+                <div className="text-center py-10 px-4 rounded-xl border border-dashed border-slate-800 bg-slate-900/30">
                   <p className="text-slate-400 text-sm font-medium">No hay reportes registrados actualmente.</p>
                   <p className="text-slate-500 text-xs mt-1">Los reportes creados por cualquier sucursal aparecerán aquí con su estado y botón de reenvío.</p>
-                  <div className="mt-4 flex items-center justify-center gap-3">
+                  <div className="mt-4 flex flex-col sm:flex-row items-center justify-center gap-2.5">
                     <button
                       onClick={() => setActiveView('tickets')}
-                      className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold rounded-xl cursor-pointer"
+                      className="w-full sm:w-auto px-4 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold rounded-xl cursor-pointer"
                     >
                       + Crear Primer Ticket
                     </button>
                     <button
                       onClick={() => loadMyTickets()}
-                      className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl border border-slate-700 cursor-pointer"
+                      className="w-full sm:w-auto px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl border border-slate-700 cursor-pointer"
                     >
                       🔄 Buscar de Nuevo
                     </button>
@@ -544,30 +589,30 @@ function AppClient() {
               ) : (
                 <div className="divide-y divide-slate-800/80">
                   {myTickets.map(ticket => (
-                    <div key={ticket.id} className="py-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4 hover:bg-slate-800/20 px-3 rounded-xl transition-colors">
+                    <div key={ticket.id} className="py-4 flex flex-col lg:flex-row lg:items-center justify-between gap-3.5 hover:bg-slate-800/20 px-2 sm:px-3 rounded-xl transition-colors">
                       <div className="space-y-1.5 flex-1 min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                           <span className="font-mono text-cyan-400 font-bold text-xs sm:text-sm">#{ticket.displayId || ticket.id.substring(0, 8)}</span>
                           
                           {/* Sucursal / Reportante */}
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-bold bg-slate-800 text-cyan-300 border border-slate-700">
-                            <Building2 className="w-3 h-3 text-cyan-400" />
-                            {ticket.reporter_name || ticket.branch || ticket.user || 'Sucursal'}
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-bold bg-slate-800 text-cyan-300 border border-slate-700">
+                            <Building2 className="w-3 h-3 text-cyan-400 shrink-0" />
+                            <span className="truncate max-w-[140px] sm:max-w-none">{ticket.reporter_name || ticket.branch || ticket.user || 'Sucursal'}</span>
                           </span>
 
                           {/* Estado de resolución */}
-                          <span className={`px-2.5 py-0.5 rounded-lg text-[11px] font-bold ${getStatusBadge(ticket.status)}`}>
+                          <span className={`px-2 py-0.5 rounded-lg text-[11px] font-bold ${getStatusBadge(ticket.status)}`}>
                             {ticket.status}
                           </span>
 
                           {/* Estado en Base de Datos */}
                           {ticket.db_id || ticket.inDatabase ? (
                             <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-950/70 border border-emerald-800/80 px-2 py-0.5 rounded-md">
-                              <CheckCircle2 className="w-3 h-3" /> En Base de Datos
+                              <CheckCircle2 className="w-3 h-3" /> En Sistema
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-300 bg-amber-950/80 border border-amber-700/80 px-2 py-0.5 rounded-md animate-pulse">
-                              <Clock className="w-3 h-3" /> Pendiente de Envío
+                              <Clock className="w-3 h-3" /> Pendiente Envío
                             </span>
                           )}
 
@@ -582,10 +627,10 @@ function AppClient() {
                           )}
                         </div>
 
-                        <h4 className="text-sm sm:text-base font-bold text-white">{ticket.title}</h4>
-                        <p className="text-xs text-slate-400 line-clamp-2">{ticket.description}</p>
+                        <h4 className="text-sm sm:text-base font-bold text-white leading-snug">{ticket.title}</h4>
+                        <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">{ticket.description}</p>
                         
-                        <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500 pt-0.5">
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-slate-500 pt-0.5">
                           <span>{ticket.date}</span>
                           {ticket.category && <span>• {ticket.category}</span>}
                           {ticket.priority && (
@@ -594,13 +639,13 @@ function AppClient() {
                         </div>
                       </div>
 
-                      {/* Botón Reenviar en vivo */}
-                      <div className="flex items-center gap-2 shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-800">
+                      {/* Botón Reenviar en vivo (ancho completo en celular) */}
+                      <div className="flex items-center gap-2 shrink-0 pt-2.5 lg:pt-0 border-t lg:border-t-0 border-slate-800/80">
                         <button
                           type="button"
                           onClick={() => handleResendSingle(ticket.id)}
                           disabled={resendingId === ticket.id}
-                          className={`inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer active:scale-95 disabled:opacity-50 shadow-md ${
+                          className={`flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 sm:py-2 text-xs font-bold rounded-xl transition-all cursor-pointer active:scale-95 disabled:opacity-50 shadow-md ${
                             resendSuccessId === ticket.id
                               ? 'bg-emerald-600 text-white border border-emerald-500'
                               : 'bg-cyan-950 hover:bg-cyan-900 text-cyan-300 hover:text-white border border-cyan-700/80'
@@ -618,7 +663,7 @@ function AppClient() {
                         </button>
 
                         {ticket.status === 'Resuelto' && (
-                          <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-400 bg-emerald-950/40 px-3 py-2 rounded-xl border border-emerald-800">
+                          <span className="inline-flex items-center justify-center gap-1 text-xs font-bold text-emerald-400 bg-emerald-950/40 px-3 py-2.5 sm:py-2 rounded-xl border border-emerald-800">
                             <CheckCircle2 className="w-4 h-4" /> Solucionado
                           </span>
                         )}
@@ -637,29 +682,29 @@ function AppClient() {
       {/* Lightbox para cliente */}
       {clientLightboxPhoto && (
         <div 
-          className="fixed inset-0 z-[99999] bg-black/90 backdrop-blur-md flex items-center justify-center p-4"
+          className="fixed inset-0 z-[99999] bg-black/90 backdrop-blur-md flex items-center justify-center p-3 sm:p-4"
           onClick={() => setClientLightboxPhoto(null)}
         >
-          <div className="relative max-w-4xl max-h-[90vh] bg-[#0f172a] rounded-2xl overflow-hidden border border-slate-700 shadow-2xl flex flex-col" onClick={e => e.stopPropagation()}>
-            <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-[#0a1128]">
-              <span className="text-sm font-bold text-white flex items-center gap-2">
+          <div className="relative w-full max-w-4xl max-h-[90dvh] bg-[#0f172a] rounded-2xl overflow-hidden border border-slate-700 shadow-2xl flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="p-3.5 sm:p-4 border-b border-slate-800 flex items-center justify-between bg-[#0a1128]">
+              <span className="text-xs sm:text-sm font-bold text-white flex items-center gap-2">
                 <Camera className="w-4 h-4 text-cyan-400" /> Foto Adjunta de la Incidencia
               </span>
               <button 
                 onClick={() => setClientLightboxPhoto(null)}
-                className="p-1 rounded-lg bg-slate-800 text-slate-400 hover:text-white cursor-pointer"
+                className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="p-2 flex items-center justify-center bg-black/60 overflow-auto max-h-[75vh]">
-              <img src={clientLightboxPhoto} alt="Evidencia completa" className="max-w-full max-h-[70vh] object-contain rounded-lg" />
+            <div className="p-2 flex items-center justify-center bg-black/60 overflow-auto max-h-[75dvh]">
+              <img src={clientLightboxPhoto} alt="Evidencia completa" className="max-w-full max-h-[72dvh] object-contain rounded-lg" />
             </div>
           </div>
         </div>
       )}
 
-    {/* Modal de Configuración de Notificaciones */}
+      {/* Modal de Configuración de Notificaciones */}
       <NotificationSettingsModal 
         isOpen={isNotifModalOpen} 
         onClose={() => setIsNotifModalOpen(false)} 

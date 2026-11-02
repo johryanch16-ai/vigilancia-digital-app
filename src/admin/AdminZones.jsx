@@ -97,19 +97,19 @@ export default function AdminZones() {
         </div>
       )}
 
-      <div className="sm:flex sm:items-center sm:justify-between mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6 sm:mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-            <MapPin className="w-6 h-6 text-cyan-400" /> Gestión de Zonas y Sucursales
+          <h1 className="text-lg sm:text-2xl font-bold text-white flex items-center gap-2">
+            <MapPin className="w-5 h-5 sm:w-6 sm:h-6 text-cyan-400 shrink-0" /> Gestión de Zonas y Sucursales
           </h1>
-          <p className="mt-1 text-sm text-slate-400">
+          <p className="mt-1 text-xs sm:text-sm text-slate-400">
             Administra las ubicaciones físicas y sucursales donde operan los equipos y se atienden incidencias.
           </p>
         </div>
-        <div className="mt-4 sm:mt-0 flex gap-3">
+        <div className="flex gap-3">
           <button 
             onClick={() => { setEditingZone(null); setIsModalOpen(true); }}
-            className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 border border-transparent rounded-xl text-sm font-bold text-white hover:shadow-[0_0_20px_rgba(37,99,235,0.4)] shadow-sm transition-all cursor-pointer"
+            className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 border border-transparent rounded-xl text-xs sm:text-sm font-bold text-white hover:shadow-[0_0_20px_rgba(37,99,235,0.4)] shadow-sm transition-all cursor-pointer"
           >
             <Plus className="w-4 h-4" /> Nueva Zona / Sucursal
           </button>
@@ -218,9 +218,10 @@ export default function AdminZones() {
         document.body
       )}
 
-      {/* Tabla de Zonas */}
+      {/* Tabla y Tarjetas de Zonas */}
       <div className="bg-[#0f172a] rounded-2xl shadow-sm border border-slate-800 overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* Vista Desktop */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="min-w-full divide-y divide-slate-800">
             <thead className="bg-[#0a1128]">
               <tr>
@@ -283,6 +284,55 @@ export default function AdminZones() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Vista Móvil en Tarjetas */}
+        <div className="md:hidden divide-y divide-slate-800">
+          {filteredZones.map((zone) => (
+            <div key={zone.id} className="p-4 flex items-center justify-between gap-3 hover:bg-slate-800/30 transition-colors">
+              <div className="flex items-start gap-3 min-w-0 flex-1">
+                <div className="p-2.5 rounded-xl bg-cyan-950/50 border border-cyan-800/50 text-cyan-400 shrink-0 mt-0.5">
+                  <MapPin className="w-4 h-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-bold text-white text-sm truncate">{zone.name}</span>
+                    <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full border ${
+                      zone.status === 'Activa' ? 'bg-emerald-900/30 text-emerald-400 border-emerald-800' : 
+                      zone.status === 'Mantenimiento' ? 'bg-amber-900/30 text-amber-400 border-amber-800' : 
+                      'bg-slate-800 text-slate-400 border-slate-700'
+                    }`}>
+                      {zone.status || 'Activa'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-1 line-clamp-1">
+                    {zone.address || 'Sin dirección especificada'}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button 
+                  className="p-2 text-cyan-400 bg-slate-800/80 rounded-xl border border-slate-700 cursor-pointer" 
+                  title="Editar Sucursal"
+                  onClick={() => openEditModal(zone)}
+                >
+                  <Edit2 className="w-4 h-4" />
+                </button>
+                <button 
+                  className="p-2 text-red-400 bg-slate-800/80 rounded-xl border border-slate-700 cursor-pointer" 
+                  title="Eliminar Sucursal"
+                  onClick={() => handleDeleteZone(zone.id, zone.name)}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          ))}
+          {filteredZones.length === 0 && !loading && (
+            <div className="p-8 text-center text-slate-400 text-xs">
+              No se encontraron sucursales {searchTerm ? `con el término "${searchTerm}"` : ''}.
+            </div>
+          )}
         </div>
       </div>
     </div>

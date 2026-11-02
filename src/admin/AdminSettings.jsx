@@ -72,12 +72,12 @@ export default function AdminSettings() {
   };
 
   return (
-    <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-6">
+    <div className="p-3.5 sm:p-6 max-w-5xl mx-auto space-y-5 sm:space-y-6 pb-24">
       <div>
-        <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-          <Settings className="w-6 h-6 text-cyan-400" /> Configuración Global
+        <h1 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
+          <Settings className="w-5 h-5 sm:w-6 sm:h-6 text-cyan-400 shrink-0" /> Configuración Global
         </h1>
-        <p className="mt-1 text-sm text-slate-400">
+        <p className="mt-1 text-xs sm:text-sm text-slate-400">
           Ajustes de alertas de tickets en tiempo real, notificaciones del sistema y parámetros de servicio.
         </p>
       </div>
@@ -250,25 +250,25 @@ export default function AdminSettings() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                   {browserPermission !== 'granted' && (
                     <button
                       type="button"
                       onClick={handleRequestPermission}
-                      className="px-3.5 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+                      className="flex-1 sm:flex-initial justify-center px-3.5 py-2.5 sm:py-2 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
                     >
-                      <ExternalLink className="w-4 h-4" />
-                      Autorizar Permiso
+                      <ExternalLink className="w-4 h-4 shrink-0" />
+                      <span>Autorizar Permiso</span>
                     </button>
                   )}
                   <button
                     type="button"
                     onClick={handleTest}
                     disabled={testStatus === 'probando'}
-                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-cyan-300 hover:text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer shadow-sm active:scale-95"
+                    className="flex-1 sm:flex-initial justify-center px-4 py-2.5 sm:py-2 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-cyan-300 hover:text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer shadow-sm active:scale-95"
                   >
-                    <Play className="w-3.5 h-3.5 fill-current" />
-                    {testStatus === 'probando' ? 'Probando...' : 'Probar Notificación Ahora'}
+                    <Play className="w-3.5 h-3.5 fill-current shrink-0" />
+                    <span>{testStatus === 'probando' ? 'Probando...' : 'Probar Notificación'}</span>
                   </button>
                 </div>
               </div>

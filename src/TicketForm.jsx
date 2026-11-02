@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Building2, 
   Tags, 
@@ -15,14 +15,15 @@ import {
   UploadCloud,
   Image as ImageIcon,
   Trash2,
-  Maximize2
+  Maximize2,
+  ChevronDown
 } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import { BRANCH_NAMES } from './lib/branches';
 import { createTicket, getLocalTickets, deduplicateTickets, subscribeToTickets, syncPendingLocalTickets, resendTicketToSupabase, resendAllPendingTickets } from './lib/ticketStorage.js';
 
 const TicketForm = ({ currentUser }) => {
-  // Inicializar sucursal automticamente segn el usuario conectado
+  // Inicializar sucursal automáticamente según el usuario conectado
   const defaultBranch = currentUser?.branch || currentUser?.name || '';
 
   const [formData, setFormData] = useState({
@@ -79,6 +80,7 @@ const TicketForm = ({ currentUser }) => {
   const [isCompressing, setIsCompressing] = useState(false);
   const [imageModalOpen, setImageModalOpen] = useState(false);
   const fileInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
 
   // Cargar tickets de esta sucursal
   const loadRecentTickets = async () => {
@@ -140,19 +142,19 @@ const TicketForm = ({ currentUser }) => {
   }, [currentUser]);
 
   const categories = [
-    { id: 'camaras', name: 'Mantenimiento de Circuito Cerrado / Cmaras' },
+    { id: 'camaras', name: 'Mantenimiento de Circuito Cerrado / Cámaras' },
     { id: 'software', name: 'Soporte de Software y ERP' },
     { id: 'redes', name: 'Redes, Enlaces e Infraestructura' },
     { id: 'hardware', name: 'Falla de Equipo / Hardware de Punto' },
     { id: 'acceso', name: 'Control de Acceso / Alarmas de Seguridad' },
-    { id: 'otro', name: 'Otro Requerimiento Tcnico Especial' },
+    { id: 'otro', name: 'Otro Requerimiento Técnico Especial' },
   ];
 
   const priorities = [
     { id: 'Baja', label: 'Baja', color: 'bg-slate-800 text-slate-300 border-slate-600 ring-slate-400 hover:bg-slate-700/80' },
     { id: 'Media', label: 'Media', color: 'bg-blue-900/30 text-blue-400 border-blue-700 ring-blue-500 hover:bg-blue-900/50' },
     { id: 'Alta', label: 'Alta', color: 'bg-orange-900/30 text-orange-400 border-orange-700 ring-orange-500 hover:bg-orange-900/50' },
-    { id: 'Crtica', label: 'Crtica', color: 'bg-red-900/30 text-red-400 border-red-700 ring-red-500 hover:bg-red-900/50' },
+    { id: 'Crítica', label: 'Crítica', color: 'bg-red-900/30 text-red-400 border-red-700 ring-red-500 hover:bg-red-900/50' },
   ];
 
   const handleChange = (e) => {
@@ -160,13 +162,13 @@ const TicketForm = ({ currentUser }) => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  // Procesamiento y compresin automtica de imagen (Canvas)
+  // Procesamiento y compresión automática de imagen (Canvas)
   const handleImageFileChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      alert('Por favor seleccione un archivo de imagen vlido (.jpg, .png, etc.).');
+      alert('Por favor seleccione un archivo de imagen válido (.jpg, .png, etc.).');
       return;
     }
 
@@ -176,7 +178,7 @@ const TicketForm = ({ currentUser }) => {
     reader.onload = (event) => {
       const img = new Image();
       img.onload = () => {
-        // Redimensionar mximo a 1280px para velocidad y ligereza
+        // Redimensionar máximo a 1280px para velocidad y ligereza
         const MAX_WIDTH = 1280;
         const MAX_HEIGHT = 1280;
         let width = img.width;
@@ -230,6 +232,9 @@ const TicketForm = ({ currentUser }) => {
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
+    if (cameraInputRef.current) {
+      cameraInputRef.current.value = '';
+    }
   };
 
   const handleReset = () => {
@@ -269,7 +274,7 @@ const TicketForm = ({ currentUser }) => {
       handleReset();
     } catch (err) {
       console.error('Error al registrar ticket:', err);
-      alert('Ocurri un error al despachar la incidencia.');
+      alert('Ocurrió un error al despachar la incidencia.');
     } finally {
       setIsSubmitting(false);
     }
@@ -281,39 +286,39 @@ const TicketForm = ({ currentUser }) => {
       <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-600 via-cyan-400 to-blue-600 shadow-[0_0_15px_rgba(34,211,238,0.5)]"></div>
       
       {/* Form Header */}
-      <div className="px-5 sm:px-8 py-5 sm:py-7 border-b border-slate-700/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 bg-[#0a1128]/60">
+      <div className="px-4 sm:px-8 py-4 sm:py-7 border-b border-slate-700/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 bg-[#0a1128]/60">
         <div>
-          <h2 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
+          <h2 className="text-base sm:text-xl font-bold text-white flex items-center gap-2">
             Nuevo Ticket de Incidencia
           </h2>
-          <p className="text-xs sm:text-sm text-slate-400 mt-0.5">
-            Complete el registro tcnico para asignar el equipo de ingeniera y soporte correspondiente.
+          <p className="text-xs sm:text-sm text-slate-400 mt-0.5 leading-relaxed">
+            Complete el registro técnico para asignar el equipo de ingeniería y soporte correspondiente.
           </p>
         </div>
-        <span className="bg-blue-500/10 text-cyan-400 border border-blue-500/30 px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold tracking-widest uppercase shadow-sm flex items-center gap-2 shrink-0 self-start sm:self-auto">
+        <span className="bg-blue-500/10 text-cyan-400 border border-blue-500/30 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-bold tracking-widest uppercase shadow-sm flex items-center gap-1.5 shrink-0 self-start sm:self-auto">
           <Cpu className="w-3.5 h-3.5 text-cyan-400" /> B2B Portal
         </span>
       </div>
 
       {/* Alerta de Ticket Creado Exitosamente */}
       {successTicket && (
-        <div className="m-4 sm:m-6 p-4 sm:p-5 bg-emerald-950/40 border border-emerald-500/40 rounded-xl flex items-center justify-between gap-4 animate-in fade-in duration-300 shadow-[0_0_20px_rgba(16,185,129,0.2)]">
-          <div className="flex items-center gap-3">
-            <CheckCircle2 className="w-6 h-6 text-emerald-400 shrink-0" />
+        <div className="m-3.5 sm:m-6 p-3.5 sm:p-5 bg-emerald-950/40 border border-emerald-500/40 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in duration-300 shadow-[0_0_20px_rgba(16,185,129,0.2)]">
+          <div className="flex items-start sm:items-center gap-3">
+            <CheckCircle2 className="w-6 h-6 text-emerald-400 shrink-0 mt-0.5 sm:mt-0" />
             <div>
               <h4 className="text-sm sm:text-base font-bold text-white font-mono tracking-tight">
-                Incidencia Registrada Exitosamente! #{successTicket.id}
+                ¡Incidencia Registrada Exitosamente! #{successTicket.id}
               </h4>
               {successTicket.image && (
                 <p className="text-xs text-emerald-300 mt-0.5 flex items-center gap-1">
-                  <Camera className="w-3.5 h-3.5" /> Imagen de evidencia adjunta recibida por administradores.
+                  <Camera className="w-3.5 h-3.5 shrink-0" /> Imagen de evidencia adjunta recibida por soporte.
                 </p>
               )}
             </div>
           </div>
           <button
             onClick={() => setSuccessTicket(null)}
-            className="text-xs font-bold px-3 py-1.5 bg-emerald-800/40 hover:bg-emerald-800/70 text-emerald-200 border border-emerald-600/40 rounded-lg transition-colors shrink-0"
+            className="w-full sm:w-auto text-xs font-bold px-3 py-2 sm:py-1.5 bg-emerald-800/40 hover:bg-emerald-800/70 text-emerald-200 border border-emerald-600/40 rounded-lg transition-colors shrink-0 text-center"
           >
             Cerrar aviso
           </button>
@@ -323,7 +328,7 @@ const TicketForm = ({ currentUser }) => {
       {/* Form Body */}
       <form onSubmit={handleSubmit} className="p-4 sm:p-6 md:p-8">
         
-        {/* Seccin 01: Informacin General */}
+        {/* Sección 01: Información General */}
         <div className="mb-6 sm:mb-8">
           <div className="flex items-center gap-2.5 sm:gap-3 mb-4 sm:mb-5 pb-2 border-b border-slate-700/50">
             <div className="w-6 h-6 rounded-md bg-blue-500/20 flex items-center justify-center border border-blue-500/30">
@@ -336,10 +341,10 @@ const TicketForm = ({ currentUser }) => {
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
             
-            {/* Punto de Operacin (Sucursal) */}
+            {/* Punto de Operación (Sucursal) */}
             <div className="relative group">
               <label htmlFor="branch" className="block text-xs sm:text-sm font-semibold text-slate-300 mb-1.5">
-                Punto de Operacin / Cuenta *
+                Punto de Operación / Cuenta *
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
@@ -351,7 +356,7 @@ const TicketForm = ({ currentUser }) => {
                   required
                   value={formData.branch}
                   onChange={handleChange}
-                  className="pl-11 w-full px-3.5 py-3 bg-slate-800/60 border border-slate-600 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all text-white appearance-none hover:border-slate-500 shadow-inner text-xs sm:text-sm"
+                  className="pl-11 pr-9 w-full py-3 bg-slate-800/60 border border-slate-600 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all text-white appearance-none hover:border-slate-500 shadow-inner text-xs sm:text-sm"
                 >
                   <option value="" className="bg-slate-900 text-slate-400">Seleccione cuenta o sucursal...</option>
                   {BRANCH_NAMES.map(branchName => (
@@ -360,18 +365,21 @@ const TicketForm = ({ currentUser }) => {
                     </option>
                   ))}
                 </select>
+                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-400">
+                  <ChevronDown className="w-4 h-4" />
+                </div>
               </div>
               {currentUser?.branch && (
                 <p className="text-[11px] text-cyan-400/80 mt-1">
-                  V Preseleccionado automticamente segn su cuenta ({currentUser.branch}).
+                  ✓ Preseleccionado automáticamente según su cuenta ({currentUser.branch}).
                 </p>
               )}
             </div>
 
-            {/* Categora / Lnea de Servicio */}
+            {/* Categoría / Línea de Servicio */}
             <div className="relative group">
               <label htmlFor="category" className="block text-xs sm:text-sm font-semibold text-slate-300 mb-1.5">
-                Lnea de Servicio *
+                Línea de Servicio *
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
@@ -383,26 +391,29 @@ const TicketForm = ({ currentUser }) => {
                   required
                   value={formData.category}
                   onChange={handleChange}
-                  className="pl-11 w-full px-3.5 py-3 bg-slate-800/60 border border-slate-600 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all text-white appearance-none hover:border-slate-500 shadow-inner text-xs sm:text-sm"
+                  className="pl-11 pr-9 w-full py-3 bg-slate-800/60 border border-slate-600 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all text-white appearance-none hover:border-slate-500 shadow-inner text-xs sm:text-sm"
                 >
-                  <option value="" className="bg-slate-900 text-slate-400">Seleccione categora...</option>
+                  <option value="" className="bg-slate-900 text-slate-400">Seleccione categoría...</option>
                   {categories.map(c => (
                     <option key={c.id} value={c.id} className="bg-slate-900 text-white">{c.name}</option>
                   ))}
                 </select>
+                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-400">
+                  <ChevronDown className="w-4 h-4" />
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Seccin 02: Detalles del Problema */}
+        {/* Sección 02: Detalles del Problema */}
         <div className="mb-6 sm:mb-8">
           <div className="flex items-center gap-2.5 sm:gap-3 mb-4 sm:mb-5 pb-2 border-b border-slate-700/50">
             <div className="w-6 h-6 rounded-md bg-blue-500/20 flex items-center justify-center border border-blue-500/30">
               <span className="text-cyan-400 font-bold text-xs">02</span>
             </div>
             <h3 className="text-xs sm:text-sm font-bold text-slate-300 uppercase tracking-widest">
-              Especificacin del Evento
+              Especificación del Evento
             </h3>
           </div>
           
@@ -421,7 +432,7 @@ const TicketForm = ({ currentUser }) => {
                   id="title"
                   name="title"
                   required
-                  placeholder="Ej. Cmara 04 sin seal / Prdida de enlace con servidor"
+                  placeholder="Ej. Cámara 04 sin señal / Pérdida de enlace con servidor"
                   value={formData.title}
                   onChange={handleChange}
                   className="pl-11 w-full px-3.5 py-3 bg-slate-800/60 border border-slate-600 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all text-white hover:border-slate-500 shadow-inner font-medium placeholder-slate-500 text-xs sm:text-sm"
@@ -429,10 +440,10 @@ const TicketForm = ({ currentUser }) => {
               </div>
             </div>
 
-            {/* Clasificacin de Severidad */}
+            {/* Clasificación de Severidad */}
             <div>
               <label className="block text-xs sm:text-sm font-semibold text-slate-300 mb-2 flex items-center gap-2">
-                Clasificacin de Severidad <AlertTriangle className="h-4 w-4 text-amber-500"/>
+                Clasificación de Severidad <AlertTriangle className="h-4 w-4 text-amber-500"/>
               </label>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
                 {priorities.map(p => (
@@ -460,10 +471,10 @@ const TicketForm = ({ currentUser }) => {
               </div>
             </div>
 
-            {/* Bitcora de Observaciones */}
+            {/* Bitácora de Observaciones */}
             <div className="group">
               <label htmlFor="description" className="block text-xs sm:text-sm font-semibold text-slate-300 mb-1.5">
-                Bitcora de Observaciones *
+                Bitácora de Observaciones *
               </label>
               <div className="relative">
                 <div className="absolute top-3.5 left-3.5 pointer-events-none">
@@ -474,7 +485,7 @@ const TicketForm = ({ currentUser }) => {
                   name="description"
                   required
                   rows="4"
-                  placeholder="Describa el comportamiento anmalo, cdigos de error (si aplican) y reas comprometidas..."
+                  placeholder="Describa el comportamiento anómalo, códigos de error (si aplican) y áreas comprometidas..."
                   value={formData.description}
                   onChange={handleChange}
                   className="pl-11 w-full px-3.5 py-3 bg-slate-800/60 border border-slate-600 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all text-white resize-y hover:border-slate-500 shadow-inner leading-relaxed placeholder-slate-500 text-xs sm:text-sm"
@@ -484,18 +495,18 @@ const TicketForm = ({ currentUser }) => {
           </div>
         </div>
 
-        {/* Seccin 03: Evidencia Fotogrfica / Imagen Adjunta */}
+        {/* Sección 03: Evidencia Fotográfica / Imagen Adjunta */}
         <div className="mb-6 sm:mb-8">
           <div className="flex items-center gap-2.5 sm:gap-3 mb-4 sm:mb-5 pb-2 border-b border-slate-700/50">
             <div className="w-6 h-6 rounded-md bg-cyan-500/20 flex items-center justify-center border border-cyan-500/30">
               <span className="text-cyan-400 font-bold text-xs">03</span>
             </div>
             <h3 className="text-xs sm:text-sm font-bold text-slate-300 uppercase tracking-widest flex items-center gap-2">
-              Evidencia Fotogrfica <span className="text-slate-500 font-normal lowercase">(opcional)</span>
+              Evidencia Fotográfica <span className="text-slate-500 font-normal lowercase">(opcional)</span>
             </h3>
           </div>
 
-          {/* Input oculto compatible con telfono (cmara/galera) y computadora */}
+          {/* Inputs ocultos compatibles con cámara directa en celular y galería/archivos */}
           <input 
             type="file" 
             ref={fileInputRef}
@@ -504,32 +515,61 @@ const TicketForm = ({ currentUser }) => {
             className="hidden"
             id="ticket-image-input"
           />
+          <input 
+            type="file" 
+            ref={cameraInputRef}
+            accept="image/*"
+            capture="environment"
+            onChange={handleImageFileChange}
+            className="hidden"
+            id="ticket-camera-input"
+          />
 
           {!imagePreview ? (
-            <div 
-              onClick={() => fileInputRef.current?.click()}
-              className="border-2 border-dashed border-slate-700 hover:border-cyan-500/80 bg-slate-900/40 hover:bg-slate-850/60 rounded-2xl p-6 sm:p-8 text-center cursor-pointer transition-all group flex flex-col items-center justify-center gap-3"
-            >
-              <div className="w-14 h-14 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 group-hover:scale-110 group-hover:bg-cyan-500/20 transition-all shadow-[0_0_20px_rgba(6,182,212,0.15)]">
-                <Camera className="w-7 h-7" />
+            <div className="border-2 border-dashed border-slate-700 hover:border-cyan-500/80 bg-slate-900/40 rounded-2xl p-5 sm:p-7 text-center transition-all flex flex-col items-center justify-center gap-3">
+              <div 
+                onClick={() => fileInputRef.current?.click()}
+                className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 hover:scale-105 hover:bg-cyan-500/20 transition-all shadow-[0_0_20px_rgba(6,182,212,0.15)] cursor-pointer"
+              >
+                <Camera className="w-6 h-6 sm:w-7 sm:h-7" />
               </div>
               <div>
-                <p className="text-sm sm:text-base font-bold text-white group-hover:text-cyan-300 transition-colors">
-                  {isCompressing ? 'Procesando imagen...' : 'Tomar foto o subir imagen desde su dispositivo'}
+                <p className="text-sm sm:text-base font-bold text-white">
+                  {isCompressing ? 'Procesando imagen...' : 'Adjuntar evidencia fotográfica del problema'}
                 </p>
                 <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
-                  Toca aqu para abrir la cmara o galera en tu telfono, o seleccionar un archivo desde tu computadora.
+                  Usa la cámara de tu celular para tomar una foto al instante o elige una imagen de tu galería.
                 </p>
               </div>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="px-3 py-1 rounded-lg bg-slate-800 text-[11px] font-semibold text-slate-300 border border-slate-700 flex items-center gap-1.5">
-                  <UploadCloud className="w-3.5 h-3.5 text-cyan-400" /> JPG, PNG, WEBP
+
+              {/* Botones de acción rápida para Celular y Escritorio */}
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5 w-full max-w-sm mt-1">
+                <button
+                  type="button"
+                  onClick={() => cameraInputRef.current?.click()}
+                  className="w-full sm:flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-md active:scale-95 transition-all cursor-pointer"
+                >
+                  <Camera className="w-4 h-4" />
+                  <span>Tomar Foto</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full sm:flex-1 py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer"
+                >
+                  <ImageIcon className="w-4 h-4 text-cyan-400" />
+                  <span>Elegir de Galería</span>
+                </button>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-center gap-2 mt-1">
+                <span className="px-2.5 py-0.5 rounded-lg bg-slate-800/80 text-[10px] font-semibold text-slate-400 border border-slate-700/80 flex items-center gap-1">
+                  <UploadCloud className="w-3 h-3 text-cyan-400" /> JPG, PNG, WEBP • Optimización automática
                 </span>
-                <span className="text-[11px] text-slate-500">Optimizacin automtica para envos rpidos</span>
               </div>
             </div>
           ) : (
-            <div className="bg-slate-900/80 border border-cyan-500/40 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-[0_0_30px_rgba(6,182,212,0.15)] animate-in fade-in">
+            <div className="bg-slate-900/80 border border-cyan-500/40 rounded-2xl p-3.5 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-3.5 shadow-[0_0_30px_rgba(6,182,212,0.15)] animate-in fade-in">
               <div className="flex items-center gap-3.5 w-full sm:w-auto">
                 <div 
                   onClick={() => setImageModalOpen(true)}
@@ -552,27 +592,27 @@ const TicketForm = ({ currentUser }) => {
                     </span>
                     <span className="text-xs text-slate-400 font-mono">{imageInfo?.sizeKb} KB</span>
                   </div>
-                  <p className="text-sm font-semibold text-white truncate mt-1">
+                  <p className="text-xs sm:text-sm font-semibold text-white truncate mt-1">
                     {imageInfo?.name || 'evidencia_incidencia.jpg'}
                   </p>
                   <p className="text-[11px] text-emerald-400 flex items-center gap-1 mt-0.5">
-                    <CheckCircle2 className="w-3 h-3" /> Lista para enviarse a los administradores
+                    <CheckCircle2 className="w-3 h-3 shrink-0" /> Lista para enviarse a soporte
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-end pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-800">
                 <button
                   type="button"
                   onClick={() => setImageModalOpen(true)}
-                  className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-cyan-300 rounded-xl text-xs font-bold border border-slate-700 flex items-center gap-1.5 transition-colors"
+                  className="flex-1 sm:flex-initial justify-center px-3 py-2 bg-slate-800 hover:bg-slate-700 text-cyan-300 rounded-xl text-xs font-bold border border-slate-700 flex items-center gap-1.5 transition-colors cursor-pointer"
                 >
                   <Maximize2 className="w-3.5 h-3.5" /> Ver en grande
                 </button>
                 <button
                   type="button"
                   onClick={handleRemoveImage}
-                  className="px-3 py-2 bg-red-950/40 hover:bg-red-900/40 text-red-400 rounded-xl text-xs font-bold border border-red-800/50 flex items-center gap-1.5 transition-colors"
+                  className="flex-1 sm:flex-initial justify-center px-3 py-2 bg-red-950/40 hover:bg-red-900/40 text-red-400 rounded-xl text-xs font-bold border border-red-800/50 flex items-center gap-1.5 transition-colors cursor-pointer"
                 >
                   <Trash2 className="w-3.5 h-3.5" /> Quitar
                 </button>
@@ -582,18 +622,18 @@ const TicketForm = ({ currentUser }) => {
         </div>
 
         {/* Form Footer */}
-        <div className="pt-4 sm:pt-6 flex flex-col sm:flex-row justify-end gap-3 border-t border-slate-700/50 mt-2">
+        <div className="pt-4 sm:pt-6 flex flex-col sm:flex-row justify-end gap-2.5 sm:gap-3 border-t border-slate-700/50 mt-2">
           <button
             type="button"
             onClick={handleReset}
-            className="order-2 sm:order-1 flex items-center justify-center gap-2 px-5 py-3 bg-slate-800 border border-slate-600 rounded-xl text-slate-300 text-xs sm:text-sm font-bold hover:bg-slate-700 hover:text-white transition-colors w-full sm:w-auto active:scale-[0.99]"
+            className="order-2 sm:order-1 flex items-center justify-center gap-2 px-5 py-3 bg-slate-800 border border-slate-600 rounded-xl text-slate-300 text-xs sm:text-sm font-bold hover:bg-slate-700 hover:text-white transition-colors w-full sm:w-auto active:scale-[0.99] cursor-pointer"
           >
             <X className="w-4 h-4" /> Descartar
           </button>
           <button
             type="submit"
             disabled={isSubmitting || isCompressing}
-            className="order-1 sm:order-2 flex items-center justify-center gap-2 px-7 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 border border-transparent rounded-xl text-white text-xs sm:text-sm font-bold hover:from-blue-500 hover:to-cyan-500 transition-all shadow-[0_0_20px_rgba(6,182,212,0.4)] hover:shadow-[0_0_30px_rgba(6,182,212,0.6)] active:scale-[0.99] w-full sm:w-auto disabled:opacity-50"
+            className="order-1 sm:order-2 flex items-center justify-center gap-2 px-7 py-3.5 sm:py-3 bg-gradient-to-r from-blue-600 to-cyan-600 border border-transparent rounded-xl text-white text-sm font-bold hover:from-blue-500 hover:to-cyan-500 transition-all shadow-[0_0_20px_rgba(6,182,212,0.4)] hover:shadow-[0_0_30px_rgba(6,182,212,0.6)] active:scale-[0.99] w-full sm:w-auto disabled:opacity-50 cursor-pointer"
           >
             <Send className="w-4 h-4" /> {isSubmitting ? 'Registrando...' : 'Registrar Incidencia'}
           </button>
@@ -601,15 +641,15 @@ const TicketForm = ({ currentUser }) => {
       </form>
 
       {/* Apartado en vivo: Incidencias Enviadas por esta Sucursal y su Estado */}
-      <div className="border-t border-slate-700/80 bg-[#0a1128]/70 p-5 sm:p-7">
+      <div className="border-t border-slate-700/80 bg-[#0a1128]/70 p-4 sm:p-7">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
           <div className="flex items-center gap-2">
-            <Clock className="w-5 h-5 text-cyan-400" />
+            <Clock className="w-5 h-5 text-cyan-400 shrink-0" />
             <h3 className="text-sm sm:text-base font-bold text-white">
-              Estado de Incidencias Enviadas por {currentUser?.name || formData.branch || 'esta Cuenta'}
+              Estado de Incidencias de {currentUser?.name || formData.branch || 'esta Cuenta'}
             </h3>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between sm:justify-end gap-2">
             <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 border border-slate-700">
               {recentBranchTickets.length} {recentBranchTickets.length === 1 ? 'reporte' : 'reportes'}
             </span>
@@ -618,11 +658,11 @@ const TicketForm = ({ currentUser }) => {
                 type="button"
                 onClick={handleResendAll}
                 disabled={resendingAll}
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-cyan-600/90 hover:bg-cyan-500 text-white shadow-md transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-cyan-600/90 hover:bg-cyan-500 text-white shadow-md transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
                 title="Reenviar todos los reportes de esta sucursal a los administradores"
               >
                 <Send className={`w-3.5 h-3.5 ${resendingAll ? 'animate-pulse' : ''}`} />
-                <span>{resendingAll ? 'Reenviando...' : 'Reenviar todos a Soporte'}</span>
+                <span>{resendingAll ? 'Reenviando...' : 'Reenviar todos'}</span>
               </button>
             )}
           </div>
@@ -637,7 +677,7 @@ const TicketForm = ({ currentUser }) => {
 
         {recentBranchTickets.length === 0 ? (
           <p className="text-xs sm:text-sm text-slate-500 py-3">
-            No hay reportes previos registrados para esta cuenta. Los nuevos tickets que enves aparecern aqu inmediatamente con su avance.
+            No hay reportes previos registrados para esta cuenta. Los nuevos tickets que envíes aparecerán aquí inmediatamente con su avance.
           </p>
         ) : (
           <div className="space-y-2.5">
@@ -647,9 +687,9 @@ const TicketForm = ({ currentUser }) => {
                 className="bg-[#0f172a] rounded-xl p-3 sm:p-4 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 hover:border-slate-700 transition-colors"
               >
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
                     <span className="font-mono text-cyan-400 font-bold text-xs sm:text-sm">#{ticket.id}</span>
-                    <span className="text-[11px] text-slate-400">  {ticket.category}</span>
+                    {ticket.category && <span className="text-[11px] text-slate-400 truncate max-w-[180px] sm:max-w-none">• {ticket.category}</span>}
                     {ticket.image && (
                       <span className="text-[10px] font-bold text-cyan-400 bg-cyan-950/80 border border-cyan-800/80 px-2 py-0.5 rounded flex items-center gap-1">
                         <Camera className="w-3 h-3" /> Foto
@@ -660,34 +700,36 @@ const TicketForm = ({ currentUser }) => {
                   <p className="text-[11px] text-slate-400 mt-0.5 line-clamp-1">{ticket.description}</p>
                 </div>
 
-                <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2.5 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-800/80">
-                  <span className="text-[11px] text-slate-500">{ticket.date.split(',')[0]}</span>
+                <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-800/80">
+                  <span className="text-[11px] text-slate-500">{ticket.date ? ticket.date.split(',')[0] : ''}</span>
                   
-                  {/* Botón Reenviar individual */}
-                  <button
-                    type="button"
-                    onClick={() => handleResendSingle(ticket.id)}
-                    disabled={resendingId === ticket.id}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-lg bg-cyan-950 text-cyan-300 border border-cyan-700/80 hover:bg-cyan-900 hover:text-white transition-all cursor-pointer active:scale-95 disabled:opacity-50"
-                    title="Reenviar este reporte a Johryan y Johnny"
-                  >
-                    <Send className={`w-3 h-3 ${resendingId === ticket.id ? 'animate-spin' : ''}`} />
-                    <span>{resendingId === ticket.id ? 'Enviando...' : resendSuccessId === ticket.id ? '¡Reenviado!' : 'Reenviar'}</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {/* Botón Reenviar individual */}
+                    <button
+                      type="button"
+                      onClick={() => handleResendSingle(ticket.id)}
+                      disabled={resendingId === ticket.id}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg bg-cyan-950 text-cyan-300 border border-cyan-700/80 hover:bg-cyan-900 hover:text-white transition-all cursor-pointer active:scale-95 disabled:opacity-50"
+                      title="Reenviar este reporte a Johryan y Johnny"
+                    >
+                      <Send className={`w-3 h-3 ${resendingId === ticket.id ? 'animate-spin' : ''}`} />
+                      <span>{resendingId === ticket.id ? 'Enviando...' : resendSuccessId === ticket.id ? '¡Reenviado!' : 'Reenviar'}</span>
+                    </button>
 
-                  {ticket.status === 'Resuelto' ? (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-950/70 text-emerald-400 border border-emerald-800">
-                      <CheckCircle2 className="w-3.5 h-3.5" /> Solucionado
-                    </span>
-                  ) : ticket.status === 'En Progreso' ? (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-950/70 text-blue-400 border border-blue-800 animate-pulse">
-                      <Clock className="w-3.5 h-3.5" /> En Atencin
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-orange-950/70 text-orange-400 border border-orange-800">
-                      <AlertTriangle className="w-3.5 h-3.5" /> Pendiente
-                    </span>
-                  )}
+                    {ticket.status === 'Resuelto' ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-950/70 text-emerald-400 border border-emerald-800">
+                        <CheckCircle2 className="w-3 h-3" /> Solucionado
+                      </span>
+                    ) : ticket.status === 'En Progreso' ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-950/70 text-blue-400 border border-blue-800 animate-pulse">
+                        <Clock className="w-3 h-3" /> En Atención
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-orange-950/70 text-orange-400 border border-orange-800">
+                        <AlertTriangle className="w-3 h-3" /> Pendiente
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
@@ -698,23 +740,23 @@ const TicketForm = ({ currentUser }) => {
       {/* Modal Lightbox para Ampliar Imagen */}
       {imageModalOpen && imagePreview && (
         <div 
-          className="fixed inset-0 z-[99999] bg-black/90 backdrop-blur-md flex items-center justify-center p-4"
+          className="fixed inset-0 z-[99999] bg-black/90 backdrop-blur-md flex items-center justify-center p-3 sm:p-4"
           onClick={() => setImageModalOpen(false)}
         >
-          <div className="relative max-w-4xl max-h-[90vh] bg-[#0f172a] rounded-2xl overflow-hidden border border-slate-700 shadow-2xl flex flex-col" onClick={e => e.stopPropagation()}>
-            <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-[#0a1128]">
-              <span className="text-sm font-bold text-white flex items-center gap-2">
+          <div className="relative w-full max-w-4xl max-h-[90dvh] bg-[#0f172a] rounded-2xl overflow-hidden border border-slate-700 shadow-2xl flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="p-3.5 sm:p-4 border-b border-slate-800 flex items-center justify-between bg-[#0a1128]">
+              <span className="text-xs sm:text-sm font-bold text-white flex items-center gap-2">
                 <Camera className="w-4 h-4 text-cyan-400" /> Vista previa de imagen
               </span>
               <button 
                 onClick={() => setImageModalOpen(false)}
-                className="p-1 rounded-lg bg-slate-800 text-slate-400 hover:text-white"
+                className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="p-2 flex items-center justify-center bg-black/60 overflow-auto max-h-[75vh]">
-              <img src={imagePreview} alt="Evidencia completa" className="max-w-full max-h-[70vh] object-contain rounded-lg" />
+            <div className="p-2 flex items-center justify-center bg-black/60 overflow-auto max-h-[75dvh]">
+              <img src={imagePreview} alt="Evidencia completa" className="max-w-full max-h-[72dvh] object-contain rounded-lg" />
             </div>
           </div>
         </div>
