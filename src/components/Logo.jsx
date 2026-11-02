@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 
 /**
  * Componente de Logo Oficial para Vigilancia Digital S.A.
@@ -46,19 +46,19 @@ export default function Logo({
 
   // Variante sidebar / header
   return (
-    <div className={`flex items-center gap-3 select-none ${className}`}>
+    <div className={`flex items-center gap-2 sm:gap-3 select-none min-w-0 ${className}`}>
       <div className="relative shrink-0">
         <div className="absolute -inset-1 bg-cyan-500/20 rounded-xl blur-md"></div>
-        <div className="relative p-1.5 bg-gradient-to-b from-slate-900 to-[#0a1128] rounded-xl border border-cyan-500/30 shadow-[0_0_15px_rgba(6,182,212,0.2)]">
-          <LogoIcon size={34} />
+        <div className="relative p-1 sm:p-1.5 bg-gradient-to-b from-slate-900 to-[#0a1128] rounded-xl border border-cyan-500/30 shadow-[0_0_15px_rgba(6,182,212,0.2)]">
+          <LogoIcon size={28} className="w-7 h-7 sm:w-[34px] sm:h-[34px]" />
         </div>
       </div>
       <div className="flex flex-col min-w-0">
-        <span className="font-black text-white text-sm tracking-tight leading-none uppercase">
+        <span className="font-black text-white text-xs sm:text-sm tracking-tight leading-none uppercase truncate">
           Vigilancia
         </span>
-        <span className="font-extrabold text-cyan-400 text-xs tracking-wider leading-tight uppercase mt-0.5">
-          Digital <span className="text-blue-400 text-[10px] font-bold">{subtitle}</span>
+        <span className="font-extrabold text-cyan-400 text-[10px] sm:text-xs tracking-wider leading-tight uppercase mt-0.5 truncate">
+          Digital <span className="text-blue-400 text-[9px] sm:text-[10px] font-bold">{subtitle}</span>
         </span>
       </div>
     </div>
@@ -66,7 +66,7 @@ export default function Logo({
 }
 
 // Icono Vectorial Profesional de Seguridad y Vigilancia Digital
-export function LogoIcon({ size = 36 }) {
+export function LogoIcon({ size = 36, className = '' }) {
   return (
     <svg 
       width={size} 
@@ -74,7 +74,7 @@ export function LogoIcon({ size = 36 }) {
       viewBox="0 0 100 100" 
       fill="none" 
       xmlns="http://www.w3.org/2000/svg"
-      className="shrink-0"
+      className={`shrink-0 ${className}`}
     >
       <defs>
         {/* Gradiente Escudo */}

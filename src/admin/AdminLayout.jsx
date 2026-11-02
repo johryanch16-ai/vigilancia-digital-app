@@ -257,28 +257,28 @@ export default function AdminLayout() {
       <div className="flex-1 flex flex-col w-full min-w-0 overflow-hidden">
 
         {/* Top Navbar */}
-        <header className="bg-[#0f172a]/95 backdrop-blur-md shadow-sm border-b border-slate-800 z-20 shrink-0">
-          <div className="flex justify-between items-center h-14 sm:h-16 px-3 sm:px-6 lg:px-8 gap-2">
+        <header className="bg-[#0f172a]/95 backdrop-blur-md shadow-sm border-b border-slate-800 z-20 shrink-0 w-full">
+          <div className="flex justify-between items-center h-14 sm:h-16 px-2.5 sm:px-6 lg:px-8 gap-2 max-w-full">
 
             {/* Left: Hamburger & Brand / Title */}
-            <div className="flex items-center gap-2 min-w-0">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
               <button
                 onClick={() => setIsMobileMenuOpen(true)}
-                className="md:hidden p-2 rounded-xl text-slate-300 hover:text-white bg-slate-800/70 hover:bg-slate-800 border border-slate-700/60 focus:outline-none cursor-pointer shrink-0"
+                className="md:hidden p-2 rounded-xl text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 focus:outline-none cursor-pointer shrink-0"
                 aria-label="Abrir Menú"
               >
                 <Menu className="h-5 w-5" />
               </button>
 
-              <div className="md:hidden min-w-0">
-                <Logo variant="sidebar" className="scale-90 origin-left" subtitle="S.A." />
+              <div className="md:hidden min-w-0 truncate">
+                <Logo variant="sidebar" subtitle="S.A." />
               </div>
             </div>
 
             {/* Right: Notification Controls & Current Admin */}
             <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
 
-              {/* Botón para Instalar como App (PWA) si el dispositivo lo soporta y aún no está instalada */}
+              {/* Botón para Instalar como App (PWA) - En móvil se muestra dentro del menú lateral o modal para no saturar la barra superior */}
               {canInstallApp && !isInstalledApp && (
                 <button
                   type="button"
@@ -287,65 +287,77 @@ export default function AdminLayout() {
                     setCanInstallApp(canInstallPwaApp());
                     setIsInstalledApp(isRunningAsInstalledApp());
                   }}
-                  className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-[11px] sm:text-xs font-bold bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white shadow-md cursor-pointer transition-all active:scale-95"
+                  className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white shadow-md cursor-pointer transition-all active:scale-95"
                   title="Instalar Vigilancia Digital como Aplicación en este dispositivo"
                 >
                   <Download className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Instalar App</span>
+                  <span>Instalar App</span>
                 </button>
               )}
 
-              {/* Botón de Activación / Configuración de Notificaciones (Johnny & Johryan) */}
-              {isAuthorizedAdmin && (
+              {/* Botón Unificado de Notificaciones (Johnny & Johryan) */}
+              {isAuthorizedAdmin ? (
                 <button
                   type="button"
                   onClick={() => {
-                    if (browserPermission === 'default') {
+                    clearInstalledAppBadge();
+                    if (notifications > 0) {
+                      setNotifications(0);
+                      navigate('/admin/tickets');
+                    } else if (browserPermission === 'default') {
                       handleQuickEnablePhoneNotifications();
                     } else {
                       setIsNotifModalOpen(true);
                     }
                   }}
-                  className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-[11px] sm:text-xs font-bold transition-all cursor-pointer border ${isFullyActive
-                      ? 'bg-slate-800/90 border-cyan-500/40 text-cyan-300 hover:bg-slate-700/80 shadow-[0_0_15px_rgba(6,182,212,0.15)]'
-                      : 'bg-amber-950/60 border-amber-500/60 text-amber-300 hover:bg-amber-900/50 shadow-[0_0_15px_rgba(245,158,11,0.3)] animate-pulse'
+                  className={`relative flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-[11px] sm:text-xs font-bold transition-all cursor-pointer border ${isFullyActive
+                      ? 'bg-slate-800/90 border-cyan-500/40 text-cyan-300 hover:bg-slate-700/80 shadow-[0_0_12px_rgba(6,182,212,0.15)]'
+                      : 'bg-amber-950/60 border-amber-500/60 text-amber-300 hover:bg-amber-900/50 shadow-[0_0_12px_rgba(245,158,11,0.25)] animate-pulse'
                     }`}
-                  title="Configurar y activar notificaciones de tickets en este dispositivo"
+                  title={notifications > 0 ? `${notifications} incidencias nuevas` : 'Configurar y activar notificaciones de tickets'}
                 >
                   <span className={`w-2 h-2 rounded-full shrink-0 ${isFullyActive ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]' : 'bg-amber-400'}`}></span>
+                  <Bell className="w-3.5 h-3.5 shrink-0" />
                   <span className="hidden sm:inline">
                     {isFullyActive ? 'Notificaciones Activas' : 'Activar Avisos en este Dispositivo'}
                   </span>
                   <span className="sm:hidden">
-                    {isFullyActive ? 'Alertas ON' : 'Activar'}
+                    {isFullyActive ? 'Activas' : 'Activar'}
                   </span>
+                  {notifications > 0 && (
+                    <span className=" -top-1.5 -right-1.5 absolute flex h-4 w-4 sm:h-5 sm:w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-black text-white ring-2 ring-[#0f172a] animate-bounce">
+                      {notifications}
+                    </span>
+                  )}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    clearInstalledAppBadge();
+                    if (notifications > 0) {
+                      setNotifications(0);
+                      navigate('/admin/tickets');
+                    }
+                  }}
+                  title={notifications > 0 ? `${notifications} incidencias nuevas` : 'Notificaciones'}
+                  className="relative bg-slate-800/80 p-2 rounded-xl text-slate-300 hover:text-white hover:bg-slate-700 transition-colors cursor-pointer border border-slate-700/60"
+                >
+                  <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
+                  {notifications > 0 && (
+                    <span className="absolute -top-1 -right-1 flex h-4 w-4 sm:h-5 sm:w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-black text-white ring-2 ring-[#0f172a] animate-bounce">
+                      {notifications}
+                    </span>
+                  )}
                 </button>
               )}
 
-              <button
-                type="button"
-                onClick={() => {
-                  clearInstalledAppBadge();
-                  if (notifications > 0) {
-                    setNotifications(0);
-                    navigate('/admin/tickets');
-                  } else if (isAuthorizedAdmin) {
-                    setIsNotifModalOpen(true);
-                  }
-                }}
-                title={notifications > 0 ? `${notifications} incidencias nuevas (clic para ver)` : 'Ajustes de alertas'}
-                className="relative bg-slate-800/80 p-2 rounded-xl text-slate-300 hover:text-white hover:bg-slate-700 transition-colors cursor-pointer border border-slate-700/60"
+              {/* Admin Badge: compacto en móvil (solo avatar), completo en escritorio */}
+              <div 
+                onClick={() => isAuthorizedAdmin && setIsNotifModalOpen(true)}
+                className="flex items-center gap-2 p-1 sm:px-2.5 sm:py-1.5 bg-slate-800/80 border border-slate-700 rounded-xl shrink-0 cursor-pointer"
+                title={`Administrador: ${adminUser || 'Admin'}`}
               >
-                <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
-                {notifications > 0 && (
-                  <span className="absolute -top-1 -right-1 flex h-4 w-4 sm:h-5 sm:w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-black text-white ring-2 ring-[#0f172a] animate-bounce">
-                    {notifications}
-                  </span>
-                )}
-              </button>
-
-              {/* Admin Badge */}
-              <div className="flex items-center gap-2 px-2 py-1 sm:px-2.5 sm:py-1.5 bg-slate-800/80 border border-slate-700 rounded-xl">
                 <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-cyan-600 to-blue-600 flex items-center justify-center font-bold text-white text-xs shadow-inner shrink-0">
                   {adminUser ? adminUser.charAt(0).toUpperCase() : 'A'}
                 </div>
@@ -432,6 +444,20 @@ export default function AdminLayout() {
               </div>
 
               <div className="border-t border-slate-800 p-3.5 space-y-1.5 bg-[#0a1128]">
+                {canInstallApp && !isInstalledApp && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setIsMobileMenuOpen(false);
+                      await promptInstallPwaApp();
+                      setCanInstallApp(canInstallPwaApp());
+                      setIsInstalledApp(isRunningAsInstalledApp());
+                    }}
+                    className="w-full flex items-center px-3 py-2.5 text-sm font-bold text-white bg-gradient-to-r from-blue-600 to-cyan-600 rounded-xl shadow-md cursor-pointer mb-1"
+                  >
+                    <Download className="h-4 w-4 mr-3 shrink-0" /> Instalar App en el Celular
+                  </button>
+                )}
                 {isAuthorizedAdmin && (
                   <button
                     type="button"
